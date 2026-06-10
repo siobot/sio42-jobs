@@ -1,0 +1,301 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_KEYWORD_CONFIG, DEFAULT_LEVER, DEFAULT_MANUAL,
+  type KeywordConfig,
+} from "./types";
+
+// Manual scan
+export const runScan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { runScanForUser } = await import("./scan.server");
+    return runScanForUser(context.supabase, context.userId, "manual");
+  });
+
+// Seed defaults for a fresh account
+export const seedDefaults = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { count } = await supabase.from("sources").select("id", { count: "exact", head: true }).eq("user_id", userId);
+    if ((count ?? 0) > 0) return { seeded: false };
+
+    const rows = [
+      ...DEFAULT_GREENHOUSE.map((c) => ({ user_id: userId, type: "greenhouse" as const, slug: c.slug, name: c.name })),
+      ...DEFAULT_ASHBY.map((c) => ({ user_id: userId, type: "ashby" as const, slug: c.slug, name: c.name })),
+      ...DEFAULT_LEVER.map((c) => ({ user_id: userId, type: "lever" as const, slug: c.slug, name: c.name })),
+    ];
+    await supabase.from("sources").insert(rows);
+    await supabase.from("manual_companies").insert(
+      DEFAULT_MANUAL.map((m) => ({ user_id: userId, name: m.name, url: m.url })),
+    );
+    await supabase.from("keyword_config").upsert({ user_id: userId, config: DEFAULT_KEYWORD_CONFIG });
+    return { seeded: true };
+  });
+
+// Touch a manual company's last_checked_at
+export const markCompanyChecked = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("manual_companies")
+      .update({ last_checked_at: new Date().toISOString() })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Update job status (interested / applied / dismissed / archived / new)
+export const setJobStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      status: z.enum(["new", "interested", "applied", "dismissed", "archived"]),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("jobs")
+      .update({ status: data.status, status_updated_at: new Date().toISOString() })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+
+    // If applied, ensure an application row exists
+    if (data.status === "applied") {
+      const { data: job } = await context.supabase
+        .from("jobs").select("id, company, title, url").eq("id", data.id).maybeSingle();
+      if (job) {
+        const { data: existing } = await context.supabase
+          .from("applications").select("id").eq("job_id", job.id).maybeSingle();
+        if (!existing) {
+          await context.supabase.from("applications").insert({
+            user_id: context.userId, job_id: job.id, company: job.company, title: job.title,
+            url: job.url, stage: "applied",
+          });
+        }
+      }
+    }
+    return { ok: true };
+  });
+
+// Manual companies
+export const addManualCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ name: z.string().min(1).max(200), url: z.string().url() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("manual_companies")
+      .insert({ user_id: context.userId, name: data.name, url: data.url });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteManualCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("manual_companies").delete().eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+// Sources
+export const addSource = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      type: z.enum(["greenhouse", "ashby", "lever"]),
+      slug: z.string().min(1).max(100),
+      name: z.string().min(1).max(200),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("sources")
+      .insert({ user_id: context.userId, ...data });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const toggleSource = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), enabled: z.boolean() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("sources").update({ enabled: data.enabled })
+      .eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+export const deleteSource = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("sources").delete().eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+// Keyword config
+export const saveKeywordConfig = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ config: z.any() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("keyword_config")
+      .upsert({ user_id: context.userId, config: data.config as KeywordConfig, updated_at: new Date().toISOString() });
+    return { ok: true };
+  });
+
+// Applications
+export const updateApplication = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      stage: z.enum(["applied", "screen", "interview", "offer", "rejected", "withdrawn"]).optional(),
+      next_action: z.string().max(500).nullable().optional(),
+      next_action_at: z.string().nullable().optional(),
+      notes: z.string().max(5000).nullable().optional(),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { id, ...patch } = data;
+    await context.supabase.from("applications").update(patch).eq("id", id).eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+export const addManualApplication = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      company: z.string().min(1).max(200),
+      title: z.string().min(1).max(300),
+      url: z.string().url().optional().or(z.literal("")),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("applications").insert({
+      user_id: context.userId, company: data.company, title: data.title,
+      url: data.url || null, stage: "applied",
+    });
+    return { ok: true };
+  });
+
+export const deleteApplication = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("applications").delete().eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+// Import legacy JSON
+export const importLegacy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      config: z.any().optional(),
+      applied: z.record(z.string(), z.any()).optional(),
+      interested: z.record(z.string(), z.any()).optional(),
+      dismissed: z.record(z.string(), z.any()).optional(),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const summary = { sources: 0, manual: 0, configSaved: false, jobs: 0 };
+
+    if (data.config && typeof data.config === "object") {
+      const c = data.config as Record<string, unknown>;
+      // Sources
+      const rows: Array<{ user_id: string; type: "greenhouse"|"ashby"|"lever"; slug: string; name: string }> = [];
+      const arr = (k: string) => (Array.isArray(c[k]) ? c[k] as Array<{slug: string; name: string}> : []);
+      for (const x of arr("greenhouse_companies")) rows.push({ user_id: userId, type: "greenhouse", slug: x.slug, name: x.name });
+      for (const x of arr("ashby_companies")) rows.push({ user_id: userId, type: "ashby", slug: x.slug, name: x.name });
+      for (const x of arr("lever_companies")) rows.push({ user_id: userId, type: "lever", slug: x.slug, name: x.name });
+      if (rows.length) {
+        await supabase.from("sources").upsert(rows, { onConflict: "user_id,type,slug" });
+        summary.sources = rows.length;
+      }
+      const manual = Array.isArray(c.manual_companies) ? c.manual_companies as Array<{name: string; url: string}> : [];
+      if (manual.length) {
+        const existing = await supabase.from("manual_companies").select("name").eq("user_id", userId);
+        const have = new Set((existing.data ?? []).map((r) => r.name));
+        const toInsert = manual.filter((m) => !have.has(m.name)).map((m) => ({ user_id: userId, name: m.name, url: m.url }));
+        if (toInsert.length) await supabase.from("manual_companies").insert(toInsert);
+        summary.manual = toInsert.length;
+      }
+      // Keyword config (everything except company lists)
+      const cfg: KeywordConfig = {
+        keywords: (c.keywords as KeywordConfig["keywords"]) ?? DEFAULT_KEYWORD_CONFIG.keywords,
+        exclusions: (c.exclusions as KeywordConfig["exclusions"]) ?? DEFAULT_KEYWORD_CONFIG.exclusions,
+        non_english_markers: (c.non_english_markers as string[]) ?? DEFAULT_KEYWORD_CONFIG.non_english_markers,
+        remote_only: typeof c.remote_only === "boolean" ? c.remote_only : false,
+        remote_terms: (c.remote_terms as string[]) ?? DEFAULT_KEYWORD_CONFIG.remote_terms,
+        location_exclude: (c.location_exclude as string[]) ?? DEFAULT_KEYWORD_CONFIG.location_exclude,
+      };
+      await supabase.from("keyword_config").upsert({ user_id: userId, config: cfg, updated_at: new Date().toISOString() });
+      summary.configSaved = true;
+    }
+
+    // Helper to upsert legacy jobs into the jobs table
+    const importJobs = async (
+      records: Record<string, Record<string, unknown>> | undefined,
+      status: "applied" | "interested" | "dismissed",
+      tsField: string,
+    ) => {
+      if (!records) return 0;
+      const entries = Object.entries(records);
+      const rows = entries.map(([extId, v]) => ({
+        user_id: userId,
+        external_id: extId,
+        source: extId.split("-")[0] || "legacy",
+        company: String(v.company ?? ""),
+        title: String(v.title ?? ""),
+        location: "",
+        url: String(v.url ?? ""),
+        job_date: "",
+        matched_keywords: String(v.keywords ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+        matched_groups: [],
+        status,
+        status_updated_at: String(v[tsField] ?? new Date().toISOString()),
+        first_seen_at: String(v[tsField] ?? new Date().toISOString()),
+        last_seen_at: new Date().toISOString(),
+      }));
+      const chunk = 500;
+      let inserted = 0;
+      for (let i = 0; i < rows.length; i += chunk) {
+        const slice = rows.slice(i, i + chunk);
+        const { error, count } = await supabase.from("jobs")
+          .upsert(slice, { onConflict: "user_id,external_id", count: "exact" });
+        if (!error) inserted += count ?? slice.length;
+      }
+      return inserted;
+    };
+    summary.jobs += await importJobs(data.dismissed, "dismissed", "dismissed_at");
+    summary.jobs += await importJobs(data.interested, "interested", "added_at");
+    summary.jobs += await importJobs(data.applied, "applied", "applied_at");
+
+    // Seed applications from applied entries
+    if (data.applied) {
+      for (const [extId, v] of Object.entries(data.applied)) {
+        const { data: job } = await supabase.from("jobs").select("id").eq("user_id", userId).eq("external_id", extId).maybeSingle();
+        const company = String((v as Record<string, unknown>).company ?? "");
+        const title = String((v as Record<string, unknown>).title ?? "");
+        const url = String((v as Record<string, unknown>).url ?? "");
+        const appliedAt = String((v as Record<string, unknown>).applied_at ?? new Date().toISOString());
+        if (job) {
+          const { data: existing } = await supabase.from("applications").select("id").eq("job_id", job.id).maybeSingle();
+          if (!existing) {
+            await supabase.from("applications").insert({
+              user_id: userId, job_id: job.id, company, title, url, stage: "applied", applied_at: appliedAt,
+            });
+          }
+        } else {
+          await supabase.from("applications").insert({
+            user_id: userId, company, title, url, stage: "applied", applied_at: appliedAt,
+          });
+        }
+      }
+    }
+    return summary;
+  });
