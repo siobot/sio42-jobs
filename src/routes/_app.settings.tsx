@@ -195,7 +195,8 @@ function ImportTab() {
     }
   }
   const importM = useMutation({
-    mutationFn: () => importFn({ data: files as Parameters<typeof importFn>[0]["data"] }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mutationFn: () => importFn({ data: files as any }),
     onSuccess: (s) => {
       toast.success(`Imported: ${s.sources} sources, ${s.manual} manual, ${s.jobs} jobs${s.configSaved ? ", config" : ""}`);
       qc.invalidateQueries();
