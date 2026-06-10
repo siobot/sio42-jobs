@@ -17,6 +17,7 @@ import { Route as AppJobsRouteImport } from './routes/_app.jobs'
 import { Route as AppHistoryRouteImport } from './routes/_app.history'
 import { Route as AppChecklistRouteImport } from './routes/_app.checklist'
 import { Route as AppApplicationsRouteImport } from './routes/_app.applications'
+import { Route as ApiPublicScanRouteImport } from './routes/api.public.scan'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -57,6 +58,11 @@ const AppApplicationsRoute = AppApplicationsRouteImport.update({
   path: '/applications',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicScanRoute = ApiPublicScanRouteImport.update({
+  id: '/api/public/scan',
+  path: '/api/public/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof AppHistoryRoute
   '/jobs': typeof AppJobsRoute
   '/settings': typeof AppSettingsRoute
+  '/api/public/scan': typeof ApiPublicScanRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/jobs': typeof AppJobsRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
+  '/api/public/scan': typeof ApiPublicScanRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/_app/jobs': typeof AppJobsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/': typeof AppIndexRoute
+  '/api/public/scan': typeof ApiPublicScanRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/jobs'
     | '/settings'
+    | '/api/public/scan'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/jobs'
     | '/settings'
     | '/'
+    | '/api/public/scan'
   id:
     | '__root__'
     | '/_app'
@@ -116,11 +127,13 @@ export interface FileRouteTypes {
     | '/_app/jobs'
     | '/_app/settings'
     | '/_app/'
+    | '/api/public/scan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicScanRoute: typeof ApiPublicScanRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -181,6 +194,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppApplicationsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/scan': {
+      id: '/api/public/scan'
+      path: '/api/public/scan'
+      fullPath: '/api/public/scan'
+      preLoaderRoute: typeof ApiPublicScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -207,7 +227,18 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicScanRoute: ApiPublicScanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
