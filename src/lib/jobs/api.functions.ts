@@ -437,3 +437,46 @@ export const deleteNotification = createServerFn({ method: "POST" })
       .delete().eq("id", data.id).eq("user_id", context.userId);
     return { ok: true };
   });
+
+// ---------- Push subscriptions ----------
+export const savePushSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      endpoint: z.string().url().max(2000),
+      p256dh: z.string().min(1).max(500),
+      auth: z.string().min(1).max(500),
+      user_agent: z.string().max(500).optional(),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("push_subscriptions").upsert({
+      user_id: context.userId,
+      endpoint: data.endpoint,
+      p256dh: data.p256dh,
+      auth: data.auth,
+      user_agent: data.user_agent ?? null,
+    }, { onConflict: "user_id,endpoint" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deletePushSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ endpoint: z.string().url().max(2000) }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("push_subscriptions")
+      .delete().eq("user_id", context.userId).eq("endpoint", data.endpoint);
+    return { ok: true };
+  });
+
+export const hasPushSubscription = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { count } = await context.supabase
+      .from("push_subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId);
+    return { count: count ?? 0 };
+  });
+
