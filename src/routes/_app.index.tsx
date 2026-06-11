@@ -46,6 +46,7 @@ function Dashboard() {
     queryFn: async () => {
       const { data } = await supabase.from("jobs")
         .select("id, company, title, url, source, first_seen_at, matched_groups, status")
+        .eq("status", "new")
         .order("first_seen_at", { ascending: false }).limit(10);
       return data ?? [];
     },
