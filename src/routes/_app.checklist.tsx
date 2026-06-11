@@ -64,6 +64,7 @@ function ChecklistPage() {
 
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -94,7 +95,7 @@ function ChecklistPage() {
             url={c.url}
             lastCheckedAt={c.last_checked_at}
             onClickName={() => markM.mutate(c.id)}
-            onDelete={() => delM.mutate(c.id)}
+            onDeleteRequest={() => setPendingDelete({ id: c.id, name: c.name })}
             onSaveUrl={(url) => updateM.mutateAsync({ id: c.id, url })}
           />
         ))}
@@ -102,6 +103,29 @@ function ChecklistPage() {
           <p className="p-6 text-sm text-muted-foreground text-center">No companies yet — add one above.</p>
         )}
       </Card>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete company?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{pendingDelete?.name}</strong> from the checklist? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDelete) delM.mutate(pendingDelete.id);
+                setPendingDelete(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
