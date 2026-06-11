@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
+  getSchedule, saveSchedule,
 } from "@/lib/jobs/api.functions";
 import { DEFAULT_KEYWORD_CONFIG, type KeywordConfig } from "@/lib/jobs/types";
 import { Card } from "@/components/ui/card";
@@ -35,10 +36,12 @@ function SettingsPage() {
         <TabsList>
           <TabsTrigger value="sources">ATS sources</TabsTrigger>
           <TabsTrigger value="filters">Keyword filters</TabsTrigger>
+          <TabsTrigger value="schedule">Scheduled scans</TabsTrigger>
           <TabsTrigger value="import">Import legacy data</TabsTrigger>
         </TabsList>
         <TabsContent value="sources"><SourcesTab /></TabsContent>
         <TabsContent value="filters"><FiltersTab /></TabsContent>
+        <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="import"><ImportTab /></TabsContent>
       </Tabs>
     </div>
