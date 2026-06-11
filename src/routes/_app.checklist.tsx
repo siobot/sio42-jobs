@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { addManualCompany, deleteManualCompany, markCompanyChecked } from "@/lib/jobs/api.functions";
+import { addManualCompany, deleteManualCompany, markCompanyChecked, updateManualCompany } from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { toast } from "sonner";
-import { ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/checklist")({
   head: () => ({ meta: [{ title: "Manual checklist — Job Monitor" }] }),
@@ -21,6 +21,7 @@ function ChecklistPage() {
   const mark = useServerFn(markCompanyChecked);
   const add = useServerFn(addManualCompany);
   const del = useServerFn(deleteManualCompany);
+  const update = useServerFn(updateManualCompany);
 
   const list = useQuery({
     queryKey: ["manual-companies"],
@@ -44,6 +45,11 @@ function ChecklistPage() {
   const delM = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
+  });
+  const updateM = useMutation({
+    mutationFn: (v: { id: string; url: string }) => update({ data: v }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
   const [name, setName] = useState("");
@@ -79,6 +85,7 @@ function ChecklistPage() {
             lastCheckedAt={c.last_checked_at}
             onClickName={() => markM.mutate(c.id)}
             onDelete={() => delM.mutate(c.id)}
+            onSaveUrl={(url) => updateM.mutateAsync({ id: c.id, url })}
           />
         ))}
         {(list.data ?? []).length === 0 && (
@@ -100,10 +107,24 @@ function freshness(lastCheckedAt: string | null) {
 }
 
 function ChecklistRow({
-  id: _id, name, url, lastCheckedAt, onClickName, onDelete,
-}: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDelete: () => void }) {
+  id: _id, name, url, lastCheckedAt, onClickName, onDelete, onSaveUrl,
+}: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDelete: () => void; onSaveUrl: (url: string) => Promise<unknown> }) {
   const rel = useRelativeTime(lastCheckedAt);
   const f = freshness(lastCheckedAt);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(url);
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => { setDraft(url); setIsEditing(true); };
+  const cancel = () => { setIsEditing(false); setDraft(url); };
+  const save = async () => {
+    if (!draft || draft === url) { setIsEditing(false); return; }
+    setSaving(true);
+    try { await onSaveUrl(draft); setIsEditing(false); }
+    catch { /* toast handled in mutation */ }
+    finally { setSaving(false); }
+  };
+
   return (
     <div className="p-3 flex items-center gap-4">
       <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${f.dot}`} aria-hidden />
@@ -118,12 +139,35 @@ function ChecklistRow({
           {name}
           <ExternalLink className="h-3 w-3 text-muted-foreground" />
         </a>
-        <div className="text-xs text-muted-foreground truncate">{url}</div>
+        {isEditing ? (
+          <div className="mt-1 flex items-center gap-1">
+            <Input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); save(); }
+                if (e.key === "Escape") { e.preventDefault(); cancel(); }
+              }}
+              className="h-7 text-xs"
+              placeholder="https://example.com/careers"
+            />
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={save} disabled={saving}>
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancel} disabled={saving}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground truncate">{url}</div>
+        )}
       </div>
       <div className={`text-xs tabular-nums w-32 text-right ${f.text}`}>
         {lastCheckedAt ? `Checked ${rel}` : "Never checked"}
       </div>
       <Button size="sm" variant="outline" onClick={onClickName}>Mark checked</Button>
+      <Button size="icon" variant="ghost" onClick={startEdit} aria-label="Edit URL"><Pencil className="h-4 w-4" /></Button>
       <Button size="icon" variant="ghost" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
     </div>
   );

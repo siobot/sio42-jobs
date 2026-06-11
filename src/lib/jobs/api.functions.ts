@@ -137,6 +137,19 @@ export const addManualCompany = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateManualCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), url: z.string().url() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("manual_companies")
+      .update({ url: data.url })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const deleteManualCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
