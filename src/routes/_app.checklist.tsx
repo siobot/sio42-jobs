@@ -27,7 +27,7 @@ function ChecklistPage() {
     queryFn: async () => {
       const { data } = await supabase.from("manual_companies")
         .select("id, name, url, last_checked_at")
-        .order("last_checked_at", { ascending: true, nullsFirst: true });
+        .order("name", { ascending: true });
       return data ?? [];
     },
   });
@@ -89,12 +89,24 @@ function ChecklistPage() {
   );
 }
 
+function freshness(lastCheckedAt: string | null) {
+  if (!lastCheckedAt) {
+    return { dot: "bg-muted-foreground/40", text: "text-muted-foreground" };
+  }
+  const days = (Date.now() - new Date(lastCheckedAt).getTime()) / 86_400_000;
+  if (days <= 7) return { dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" };
+  if (days <= 30) return { dot: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" };
+  return { dot: "bg-red-500", text: "text-red-600 dark:text-red-400" };
+}
+
 function ChecklistRow({
   id: _id, name, url, lastCheckedAt, onClickName, onDelete,
 }: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDelete: () => void }) {
   const rel = useRelativeTime(lastCheckedAt);
+  const f = freshness(lastCheckedAt);
   return (
     <div className="p-3 flex items-center gap-4">
+      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${f.dot}`} aria-hidden />
       <div className="flex-1 min-w-0">
         <a
           href={url}
@@ -108,8 +120,8 @@ function ChecklistRow({
         </a>
         <div className="text-xs text-muted-foreground truncate">{url}</div>
       </div>
-      <div className="text-xs text-muted-foreground tabular-nums w-32 text-right">
-        Checked {rel}
+      <div className={`text-xs tabular-nums w-32 text-right ${f.text}`}>
+        {lastCheckedAt ? `Checked ${rel}` : "Never checked"}
       </div>
       <Button size="sm" variant="outline" onClick={onClickName}>Mark checked</Button>
       <Button size="icon" variant="ghost" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
