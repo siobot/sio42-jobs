@@ -1,23 +1,26 @@
-## What the "Mark checked" button does today
+## Plan: Edit URL on Checklist Items
 
-It calls the same action as clicking the company name: stamps `last_checked_at = now()` on that row in the `manual_companies` table. The list is currently sorted by `last_checked_at` ascending (oldest/never-checked first), which is why a row jumps to the bottom right after you check it.
+### What
+Add an inline edit button to each checklist row so the user can change the company’s URL without deleting and re-adding the row.
 
-## Changes
+### Files to change
 
-1. **Stable order** — Sort the checklist by company name (A→Z) instead of by `last_checked_at`. Checking a row no longer moves it.
+1. **src/lib/jobs/api.functions.ts**
+   - Add `updateManualCompany` server function (POST, `requireSupabaseAuth`).
+   - Input: `{ id: string, url: string }` — URL validated with `z.string().url()`.
+   - Handler updates `manual_companies` where `id = data.id` and `user_id = context.userId`.
 
-2. **Freshness color indicator** — Add a small colored dot + tinted "Checked …" label next to each row, based on how long ago it was checked:
-   - Never checked → neutral gray
-   - ≤ 7 days → green
-   - 8–30 days → orange
-   - > 30 days → red
+2. **src/routes/_app.checklist.tsx**
+   - Import `Pencil` from `lucide-react`.
+   - In `ChecklistRow`, add local state for edit mode (`isEditing`) and edited URL value.
+   - Show a small pencil icon next to the row actions.
+   - When editing, replace the static URL display with an inline input + Save / Cancel buttons.
+   - Wire `updateManualCompany` via `useMutation`, invalidate `manual-companies` query on success.
+   - Keep the existing row layout and freshness indicator unchanged.
 
-   Colors use existing semantic tokens (no hardcoded hex). The dot sits to the left of the company name so the status is scannable down the list.
-
-3. **"Mark checked" button** stays — it's useful when you've already checked a company in another tab and just want to update the timestamp without re-opening the link. No behavior change beyond the new color refresh.
-
-## Technical notes
-
-- File: `src/routes/_app.checklist.tsx` only. No schema or server-function changes.
-- Replace the `.order("last_checked_at", …)` clause with `.order("name", { ascending: true })`.
-- Add a small `freshness(lastCheckedAt)` helper returning `{ tone: 'never'|'fresh'|'stale'|'old', label }` and map tones to Tailwind classes built from theme tokens (e.g. `bg-emerald-500`, `bg-amber-500`, `bg-red-500` dots; matching `text-*` for the label). If you'd prefer these mapped through the design-system tokens instead of Tailwind palette classes, say so and I'll wire them through `index.css`.
+### UX
+- Pencil icon button opens inline edit mode.
+- Inline input pre-filled with current URL.
+- Save commits the change; Cancel discards it.
+- No page reload or route change.
+- The company name remains read-only (only URL is editable).
