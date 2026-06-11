@@ -141,8 +141,8 @@ function freshness(lastCheckedAt: string | null) {
 }
 
 function ChecklistRow({
-  id: _id, name, url, lastCheckedAt, onClickName, onDelete, onSaveUrl,
-}: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDelete: () => void; onSaveUrl: (url: string) => Promise<unknown> }) {
+  id: _id, name, url, lastCheckedAt, onClickName, onDeleteRequest, onSaveUrl,
+}: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDeleteRequest: () => void; onSaveUrl: (url: string) => Promise<unknown> }) {
   const rel = useRelativeTime(lastCheckedAt);
   const f = freshness(lastCheckedAt);
   const [isEditing, setIsEditing] = useState(false);
@@ -201,7 +201,7 @@ function ChecklistRow({
         {lastCheckedAt ? `Checked ${rel}` : "Never checked"}
       </div>
       <Button size="icon" variant="ghost" onClick={startEdit} aria-label="Edit URL"><Pencil className="h-4 w-4" /></Button>
-      <Button size="icon" variant="ghost" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
+      <Button size="icon" variant="ghost" onClick={onDeleteRequest}><Trash2 className="h-4 w-4" /></Button>
     </div>
   );
 }
