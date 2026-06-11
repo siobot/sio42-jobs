@@ -1,22 +1,34 @@
-## 1. Dashboard — Recently added hides triaged jobs
+## Goal
+Add a "Try the demo" button on the sign-in page that drops the visitor straight into the app with a pre-populated account — no signup, no password.
 
-In `src/routes/_app.index.tsx`:
-- Filter the `dashboard-recent` query to `status = 'new'` so a job disappears from "Recently added" the moment it's marked Interested, Applied, Dismissed, or Archived.
-- Also invalidate `["dashboard-recent"]` and `["dashboard-stats"]` from `JobActions` so the row vanishes immediately after tapping (today it already invalidates `["jobs"]` — extend to include the dashboard keys).
+## Approach
+Each visitor gets their own **ephemeral demo account** (random email + password), seeded with placeholder data. This keeps demos isolated so one visitor's clicks don't pollute another's view.
 
-## 2. Jobs feed — Applied tab navigates to Applications
+## Changes
 
-In `src/routes/_app.jobs.tsx`:
-- Remove "Applied" from the in-page filter tabs and render it as a `<Link to="/applications">` styled like the other tabs, so tapping it goes to the Applications page instead of filtering the jobs feed.
-- Leave New / Interested / Dismissed / Archived / All as filter tabs.
+### 1. Server function — `src/lib/demo.functions.ts` (new)
+- `createDemoAccount` — no auth required.
+  - Uses admin client (`supabaseAdmin`, imported inside the handler) to:
+    - Generate `demo+<uuid>@demo.local` and a random password.
+    - Create the auth user with `email_confirm: true` and `user_metadata: { is_demo: true }`.
+    - Insert placeholder rows into `jobs` (a handful of varied statuses: new / interested / applied / dismissed), `applications` (a few across stages: applied / screen / interview / rejected), `sources` (default sources), and `keyword_config` (a sensible starter config).
+  - Returns `{ email, password }`.
 
-## 3. Applications page — stage tabs + stats
+### 2. Auth page — `src/routes/auth.tsx`
+- Add a "Try the demo" button below the form.
+- On click: call `createDemoAccount`, then `supabase.auth.signInWithPassword` with the returned credentials, then navigate to `/`.
 
-In `src/routes/_app.applications.tsx`:
-- Add a stats strip at the top: small cards for Total, Applied, Screen, Interview, Offer, Rejected, Withdrawn (counts derived from the existing `applications` query, no new server work).
-- Add tabs: All, Applied, Screen, Interview, Offer, Rejected, Withdrawn. Tab state lives in the URL via `validateSearch` (`stage` param) so it survives reload and is linkable.
-- Filter the rendered application list by the selected stage; "All" shows everything. The existing per-row stage `<Select>` still works for moving items between stages.
+### 3. App shell — `src/components/app-shell.tsx`
+- When the signed-in user has `user_metadata.is_demo === true`, show a small "Demo account" badge in the header with a "Sign out" affordance (the existing sign out already works; just label the state).
 
 ## Out of scope
+- No cleanup cron for old demo accounts (can be added later).
+- No schema changes — `is_demo` lives in auth `user_metadata`.
+- No changes to seeding for real accounts (`seedDefaults` still runs as today).
+- No changes to the Jobs / Applications / Dashboard pages.
 
-- No schema changes, no new server functions, no changes to scanning or `JobActions` behavior beyond the extra invalidation keys.
+## Placeholder data (rough shape)
+- ~6 jobs across the four statuses, varied companies/titles/locations.
+- ~4 applications across stages with notes + next actions.
+- Default sources enabled.
+- Starter keyword config (a few groups like "frontend", "remote", etc.).

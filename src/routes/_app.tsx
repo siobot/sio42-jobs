@@ -35,11 +35,13 @@ function AppLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
+  const isDemo = Boolean(user?.user_metadata?.is_demo);
+
   if (loading || (!session && !isPreview)) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
   }
   return (
-    <AppShell email={user?.email ?? (!session ? "preview mode" : null)}>
+    <AppShell email={user?.email ?? (!session ? "preview mode" : null)} isDemo={isDemo}>
       <Outlet />
     </AppShell>
   );
