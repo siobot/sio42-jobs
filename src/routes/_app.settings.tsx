@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
-  getSchedule, saveSchedule,
+  getSchedule, saveSchedule, savePushSubscription, deletePushSubscription, hasPushSubscription,
 } from "@/lib/jobs/api.functions";
+import { VAPID_PUBLIC_KEY } from "@/lib/push/config";
+import { subscribeToPush, unsubscribeFromPush, getCurrentSubscription } from "@/lib/push/register";
 import { DEFAULT_KEYWORD_CONFIG, type KeywordConfig } from "@/lib/jobs/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
