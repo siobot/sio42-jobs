@@ -286,7 +286,14 @@ export type Database = {
         | "applied"
         | "dismissed"
         | "archived"
-      source_type: "greenhouse" | "ashby" | "lever"
+      source_type:
+        | "greenhouse"
+        | "ashby"
+        | "lever"
+        | "doist"
+        | "remotive"
+        | "weworkremotely"
+        | "workingnomads"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -429,7 +436,15 @@ export const Constants = {
         "dismissed",
         "archived",
       ],
-      source_type: ["greenhouse", "ashby", "lever"],
+      source_type: [
+        "greenhouse",
+        "ashby",
+        "lever",
+        "doist",
+        "remotive",
+        "weworkremotely",
+        "workingnomads",
+      ],
     },
   },
 } as const
