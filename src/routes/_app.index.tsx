@@ -85,24 +85,25 @@ function Dashboard() {
         <h2 className="text-sm font-medium mb-3">Recently added</h2>
         <div className="divide-y divide-border">
           {(recent.data ?? []).map((j) => (
-            <div key={j.id} className="py-2 flex items-center justify-between gap-4">
-              <div className="min-w-0">
+            <div key={j.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <a href={j.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate block">
                   {j.title}
                 </a>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mt-0.5">
                   {j.company} · {j.source}
                   {(j.matched_groups ?? []).map((g) => (
                     <Badge key={g} variant="secondary" className="ml-1 text-[10px]">{g}</Badge>
                   ))}
                 </div>
               </div>
-              <Badge variant={j.status === "new" ? "default" : "outline"}>{j.status}</Badge>
+              <JobActions jobId={j.id} status={j.status as Status} />
             </div>
           ))}
           {(recent.data ?? []).length === 0 && (
             <p className="text-sm text-muted-foreground py-2">No jobs yet — run a scan to start.</p>
           )}
+
         </div>
       </Card>
     </div>
