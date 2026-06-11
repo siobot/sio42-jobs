@@ -27,7 +27,7 @@ function ChecklistPage() {
     queryFn: async () => {
       const { data } = await supabase.from("manual_companies")
         .select("id, name, url, last_checked_at")
-        .order("last_checked_at", { ascending: true, nullsFirst: true });
+        .order("name", { ascending: true });
       return data ?? [];
     },
   });

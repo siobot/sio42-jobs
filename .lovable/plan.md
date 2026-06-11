@@ -1,34 +1,23 @@
-## Goal
-Add a "Try the demo" button on the sign-in page that drops the visitor straight into the app with a pre-populated account — no signup, no password.
+## What the "Mark checked" button does today
 
-## Approach
-Each visitor gets their own **ephemeral demo account** (random email + password), seeded with placeholder data. This keeps demos isolated so one visitor's clicks don't pollute another's view.
+It calls the same action as clicking the company name: stamps `last_checked_at = now()` on that row in the `manual_companies` table. The list is currently sorted by `last_checked_at` ascending (oldest/never-checked first), which is why a row jumps to the bottom right after you check it.
 
 ## Changes
 
-### 1. Server function — `src/lib/demo.functions.ts` (new)
-- `createDemoAccount` — no auth required.
-  - Uses admin client (`supabaseAdmin`, imported inside the handler) to:
-    - Generate `demo+<uuid>@demo.local` and a random password.
-    - Create the auth user with `email_confirm: true` and `user_metadata: { is_demo: true }`.
-    - Insert placeholder rows into `jobs` (a handful of varied statuses: new / interested / applied / dismissed), `applications` (a few across stages: applied / screen / interview / rejected), `sources` (default sources), and `keyword_config` (a sensible starter config).
-  - Returns `{ email, password }`.
+1. **Stable order** — Sort the checklist by company name (A→Z) instead of by `last_checked_at`. Checking a row no longer moves it.
 
-### 2. Auth page — `src/routes/auth.tsx`
-- Add a "Try the demo" button below the form.
-- On click: call `createDemoAccount`, then `supabase.auth.signInWithPassword` with the returned credentials, then navigate to `/`.
+2. **Freshness color indicator** — Add a small colored dot + tinted "Checked …" label next to each row, based on how long ago it was checked:
+   - Never checked → neutral gray
+   - ≤ 7 days → green
+   - 8–30 days → orange
+   - > 30 days → red
 
-### 3. App shell — `src/components/app-shell.tsx`
-- When the signed-in user has `user_metadata.is_demo === true`, show a small "Demo account" badge in the header with a "Sign out" affordance (the existing sign out already works; just label the state).
+   Colors use existing semantic tokens (no hardcoded hex). The dot sits to the left of the company name so the status is scannable down the list.
 
-## Out of scope
-- No cleanup cron for old demo accounts (can be added later).
-- No schema changes — `is_demo` lives in auth `user_metadata`.
-- No changes to seeding for real accounts (`seedDefaults` still runs as today).
-- No changes to the Jobs / Applications / Dashboard pages.
+3. **"Mark checked" button** stays — it's useful when you've already checked a company in another tab and just want to update the timestamp without re-opening the link. No behavior change beyond the new color refresh.
 
-## Placeholder data (rough shape)
-- ~6 jobs across the four statuses, varied companies/titles/locations.
-- ~4 applications across stages with notes + next actions.
-- Default sources enabled.
-- Starter keyword config (a few groups like "frontend", "remote", etc.).
+## Technical notes
+
+- File: `src/routes/_app.checklist.tsx` only. No schema or server-function changes.
+- Replace the `.order("last_checked_at", …)` clause with `.order("name", { ascending: true })`.
+- Add a small `freshness(lastCheckedAt)` helper returning `{ tone: 'never'|'fresh'|'stale'|'old', label }` and map tones to Tailwind classes built from theme tokens (e.g. `bg-emerald-500`, `bg-amber-500`, `bg-red-500` dots; matching `text-*` for the label). If you'd prefer these mapped through the design-system tokens instead of Tailwind palette classes, say so and I'll wire them through `index.css`.
