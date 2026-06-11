@@ -9,6 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { RefreshCw } from "lucide-react";
+import { JobActions } from "@/components/job-actions";
+
+type Status = "new" | "interested" | "applied" | "dismissed" | "archived";
+
 
 export const Route = createFileRoute("/_app/")({
   head: () => ({ meta: [{ title: "Dashboard — Job Monitor" }] }),
