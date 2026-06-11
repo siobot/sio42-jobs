@@ -23,6 +23,8 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const createDemo = useServerFn(createDemoAccount);
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/" });
