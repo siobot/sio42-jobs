@@ -52,7 +52,6 @@ function JobsPage() {
   const tabs: Array<{ key: typeof search.status; label: string }> = [
     { key: "new", label: "New" },
     { key: "interested", label: "Interested" },
-    { key: "applied", label: "Applied" },
     { key: "dismissed", label: "Dismissed" },
     { key: "archived", label: "Archived" },
     { key: "all", label: "All" },
@@ -73,6 +72,9 @@ function JobsPage() {
             {t.label}
           </Button>
         ))}
+        <Link to="/applications">
+          <Button variant="outline" size="sm">Applied →</Button>
+        </Link>
         <div className="ml-auto flex gap-2 items-center">
           <Input placeholder="Search title or company" value={q} onChange={(e) => setQ(e.target.value)} className="w-56" />
           <Select value={source} onValueChange={setSource}>
