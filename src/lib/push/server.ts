@@ -21,14 +21,8 @@ export type PushPayload = {
 };
 
 type AdminLike = {
-  from: (table: string) => {
-    select: (cols: string) => {
-      eq: (col: string, v: string) => Promise<{ data: Array<Record<string, unknown>> | null }>;
-    };
-    delete: () => {
-      eq: (col: string, v: string) => Promise<unknown>;
-    };
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  from: (table: string) => any;
 };
 
 export async function sendPushToUser(
