@@ -5,17 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Dark jewel-tone design system.
+ * Dark-only theme: :root values ARE the dark values. .dark mirrors them
+ * so any explicit `dark` class behaves identically.
  */
 
 @theme inline {
@@ -59,77 +51,90 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Jewel accent palette */
+  --color-emerald: var(--jewel-emerald);
+  --color-emerald-foreground: oklch(0.16 0.03 270);
+  --color-sapphire: var(--jewel-sapphire);
+  --color-sapphire-foreground: oklch(0.98 0.01 270);
+  --color-amethyst: var(--jewel-amethyst);
+  --color-amethyst-foreground: oklch(0.98 0.01 305);
+  --color-ruby: var(--jewel-ruby);
+  --color-ruby-foreground: oklch(0.98 0.01 20);
+  --color-topaz: var(--jewel-topaz);
+  --color-topaz-foreground: oklch(0.18 0.04 80);
+  --color-aqua: var(--jewel-aqua);
+  --color-aqua-foreground: oklch(0.18 0.04 195);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --radius: 0.75rem;
+
+  /* Surfaces */
+  --background: oklch(0.16 0.03 270);
+  --foreground: oklch(0.96 0.01 90);
+  --card: oklch(0.21 0.035 270);
+  --card-foreground: oklch(0.96 0.01 90);
+  --popover: oklch(0.21 0.035 270);
+  --popover-foreground: oklch(0.96 0.01 90);
+
+  /* Primary = sapphire */
+  --primary: oklch(0.65 0.19 250);
+  --primary-foreground: oklch(0.98 0.01 270);
+
+  /* Secondary = amethyst muted */
+  --secondary: oklch(0.30 0.06 290);
+  --secondary-foreground: oklch(0.96 0.01 90);
+
+  --muted: oklch(0.26 0.03 270);
+  --muted-foreground: oklch(0.74 0.02 270);
+
+  /* Accent = amethyst */
+  --accent: oklch(0.66 0.21 305);
+  --accent-foreground: oklch(0.98 0.01 305);
+
+  --destructive: oklch(0.66 0.22 20);
+  --destructive-foreground: oklch(0.98 0.01 20);
+
+  --border: oklch(0.32 0.04 270);
+  --input: oklch(0.28 0.035 270);
+  --ring: oklch(0.65 0.19 250);
+
+  /* Jewels */
+  --jewel-emerald: oklch(0.72 0.17 155);
+  --jewel-sapphire: oklch(0.65 0.19 250);
+  --jewel-amethyst: oklch(0.66 0.21 305);
+  --jewel-ruby: oklch(0.66 0.22 20);
+  --jewel-topaz: oklch(0.80 0.17 80);
+  --jewel-aqua: oklch(0.78 0.13 195);
+
+  /* Chart tokens use jewel palette */
+  --chart-1: var(--jewel-sapphire);
+  --chart-2: var(--jewel-emerald);
+  --chart-3: var(--jewel-amethyst);
+  --chart-4: var(--jewel-topaz);
+  --chart-5: var(--jewel-ruby);
+
+  /* Sidebar — slightly deeper than background */
+  --sidebar: oklch(0.13 0.035 275);
+  --sidebar-foreground: oklch(0.94 0.01 90);
+  --sidebar-primary: oklch(0.65 0.19 250);
+  --sidebar-primary-foreground: oklch(0.98 0.01 270);
+  --sidebar-accent: oklch(0.24 0.05 285);
+  --sidebar-accent-foreground: oklch(0.98 0.01 90);
+  --sidebar-border: oklch(0.28 0.04 275);
+  --sidebar-ring: oklch(0.65 0.19 250);
+
+  /* Gradients & glow */
+  --gradient-primary: linear-gradient(135deg, var(--jewel-sapphire), var(--jewel-amethyst));
+  --gradient-jewel: linear-gradient(120deg, var(--jewel-emerald), var(--jewel-aqua) 45%, var(--jewel-sapphire) 75%, var(--jewel-amethyst));
+  --shadow-glow: 0 10px 40px -10px color-mix(in oklab, var(--jewel-sapphire) 55%, transparent);
+  --shadow-elegant: 0 8px 30px -12px oklch(0 0 0 / 0.6);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Dark-only app: identical to :root */
+  color-scheme: dark;
 }
 
 @layer base {
@@ -137,8 +142,16 @@
     border-color: var(--color-border);
   }
 
+  html {
+    color-scheme: dark;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in oklab, var(--jewel-amethyst) 18%, transparent), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, color-mix(in oklab, var(--jewel-sapphire) 14%, transparent), transparent 60%);
+    background-attachment: fixed;
   }
 }
