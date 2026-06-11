@@ -1,32 +1,22 @@
-## Goal
+## 1. Dashboard — Recently added hides triaged jobs
 
-Make Dismiss / Interested / Applied easy to act on from both the Dashboard and the Jobs feed, using plain text buttons (no icons).
+In `src/routes/_app.index.tsx`:
+- Filter the `dashboard-recent` query to `status = 'new'` so a job disappears from "Recently added" the moment it's marked Interested, Applied, Dismissed, or Archived.
+- Also invalidate `["dashboard-recent"]` and `["dashboard-stats"]` from `JobActions` so the row vanishes immediately after tapping (today it already invalidates `["jobs"]` — extend to include the dashboard keys).
 
-## Changes
+## 2. Jobs feed — Applied tab navigates to Applications
 
-### 1. Reusable `JobActions` component
-Create `src/components/job-actions.tsx`:
-- Props: `jobId`, `status`, optional `compact` flag, optional `onChange` callback.
-- Renders three text buttons in a row: **Interested**, **Applied**, **Dismiss**.
-- A small overflow link/button **Archive** (less common, kept out of the way).
-- Highlights the current status (e.g. the matching button uses `variant="default"`, others `variant="outline"`); clicking the active one again reverts the job to **New**.
-- Internally uses `useServerFn(setJobStatus)` + `useMutation` and invalidates `["jobs"]` and `["dashboard-stats"]` query keys, with a toast on success/error — same behaviour as today.
+In `src/routes/_app.jobs.tsx`:
+- Remove "Applied" from the in-page filter tabs and render it as a `<Link to="/applications">` styled like the other tabs, so tapping it goes to the Applications page instead of filtering the jobs feed.
+- Leave New / Interested / Dismissed / Archived / All as filter tabs.
 
-### 2. Jobs feed (`src/routes/_app.jobs.tsx`)
-- Replace the four icon-only buttons in each row with `<JobActions />`.
-- Keep the filter tabs (New / Interested / Applied / Dismissed / Archived / All) exactly as they are — that's how the user reviews each bucket.
-- On mobile, the action row wraps under the title/meta so taps are large and labels stay readable.
+## 3. Applications page — stage tabs + stats
 
-### 3. Dashboard (`src/routes/_app.index.tsx`)
-- In "Recently added", show the same `<JobActions />` next to each row so the user can triage the latest matches without leaving the page.
-- Keep the existing status badge so the current state is visible at a glance.
-- Mobile: stack the actions below the title/meta in the same way as the Jobs feed.
-
-### 4. No new server work
-`setJobStatus` already updates the job and (for `applied`) inserts an `applications` row, so the Application tracker continues to receive jobs marked Applied. No DB or server-function changes needed. Filtering by status on `/jobs` already provides the "see the postings I've put into these states" view the user asked for.
+In `src/routes/_app.applications.tsx`:
+- Add a stats strip at the top: small cards for Total, Applied, Screen, Interview, Offer, Rejected, Withdrawn (counts derived from the existing `applications` query, no new server work).
+- Add tabs: All, Applied, Screen, Interview, Offer, Rejected, Withdrawn. Tab state lives in the URL via `validateSearch` (`stage` param) so it survives reload and is linkable.
+- Filter the rendered application list by the selected stage; "All" shows everything. The existing per-row stage `<Select>` still works for moving items between stages.
 
 ## Out of scope
 
-- No new tables, migrations, or server functions.
-- No changes to the Applications tracker UI.
-- Keyword/source/scan logic untouched.
+- No schema changes, no new server functions, no changes to scanning or `JobActions` behavior beyond the extra invalidation keys.
