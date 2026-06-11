@@ -166,7 +166,6 @@ function ChecklistRow({
       <div className={`text-xs tabular-nums w-32 text-right ${f.text}`}>
         {lastCheckedAt ? `Checked ${rel}` : "Never checked"}
       </div>
-      <Button size="sm" variant="outline" onClick={onClickName}>Mark checked</Button>
       <Button size="icon" variant="ghost" onClick={startEdit} aria-label="Edit URL"><Pencil className="h-4 w-4" /></Button>
       <Button size="icon" variant="ghost" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
     </div>
