@@ -566,3 +566,83 @@ function ImportTab() {
     </Card>
   );
 }
+
+function ScheduleTab() {
+  const qc = useQueryClient();
+  const get = useServerFn(getSchedule);
+  const save = useServerFn(saveSchedule);
+
+  const q = useQuery({
+    queryKey: ["scan-schedule"],
+    queryFn: () => get(),
+  });
+
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [frequency, setFrequency] = useState<"hourly" | "6h" | "daily" | "weekly" | null>(null);
+
+  useEffect(() => {
+    if (q.data && enabled === null) {
+      setEnabled(Boolean(q.data.enabled));
+      setFrequency((q.data.frequency ?? "daily") as "hourly" | "6h" | "daily" | "weekly");
+    }
+  }, [q.data, enabled]);
+
+  const saveM = useMutation({
+    mutationFn: () => save({ data: { enabled: enabled ?? false, frequency: frequency ?? "daily" } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["scan-schedule"] });
+      toast.success("Schedule saved");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  if (enabled === null || frequency === null) {
+    return <div className="mt-4 text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  const last = q.data?.last_run_at ? new Date(q.data.last_run_at) : null;
+  const next = q.data?.next_run_at ? new Date(q.data.next_run_at) : null;
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card className="p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <div className="text-sm font-medium">Run scans automatically</div>
+            <div className="text-xs text-muted-foreground">
+              We'll check your sources on a schedule and notify you in-app when new matching jobs appear.
+            </div>
+          </div>
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="freq" className="text-xs uppercase tracking-wide text-muted-foreground">Frequency</Label>
+          <Select
+            value={frequency}
+            onValueChange={(v) => setFrequency(v as typeof frequency)}
+            disabled={!enabled}
+          >
+            <SelectTrigger id="freq" className="max-w-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hourly">Every hour</SelectItem>
+              <SelectItem value="6h">Every 6 hours</SelectItem>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="weekly">Weekly</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="text-xs text-muted-foreground space-y-0.5">
+          <div>Last automatic scan: {last ? last.toLocaleString() : "never"}</div>
+          {enabled && next && <div>Next scan: around {next.toLocaleString()}</div>}
+        </div>
+
+        <Button onClick={() => saveM.mutate()} disabled={saveM.isPending} size="sm">
+          <Save className="h-3.5 w-3.5 mr-1" />
+          {saveM.isPending ? "Saving…" : "Save schedule"}
+        </Button>
+      </Card>
+    </div>
+  );
+}
