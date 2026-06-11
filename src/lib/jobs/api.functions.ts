@@ -353,3 +353,87 @@ export const importLegacy = createServerFn({ method: "POST" })
     }
     return summary;
   });
+
+// ---------- Scheduled scans ----------
+const FREQUENCIES = ["hourly", "6h", "daily", "weekly"] as const;
+type Frequency = typeof FREQUENCIES[number];
+
+function computeNextRun(frequency: Frequency, from: Date = new Date()): Date {
+  const d = new Date(from);
+  if (frequency === "hourly") d.setUTCHours(d.getUTCHours() + 1);
+  else if (frequency === "6h") d.setUTCHours(d.getUTCHours() + 6);
+  else if (frequency === "weekly") d.setUTCDate(d.getUTCDate() + 7);
+  else d.setUTCDate(d.getUTCDate() + 1);
+  return d;
+}
+
+export const getSchedule = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase
+      .from("scan_schedules")
+      .select("enabled, frequency, last_run_at, next_run_at")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    return data ?? { enabled: false, frequency: "daily" as Frequency, last_run_at: null, next_run_at: null };
+  });
+
+export const saveSchedule = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      enabled: z.boolean(),
+      frequency: z.enum(FREQUENCIES),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const next = computeNextRun(data.frequency).toISOString();
+    const { error } = await context.supabase.from("scan_schedules").upsert({
+      user_id: context.userId,
+      enabled: data.enabled,
+      frequency: data.frequency,
+      next_run_at: next,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- Notifications ----------
+export const listNotifications = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase
+      .from("notifications")
+      .select("id, kind, title, body, data, read_at, created_at")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    return data ?? [];
+  });
+
+export const markNotificationRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+export const markAllNotificationsRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await context.supabase.from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", context.userId).is("read_at", null);
+    return { ok: true };
+  });
+
+export const deleteNotification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("notifications")
+      .delete().eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
