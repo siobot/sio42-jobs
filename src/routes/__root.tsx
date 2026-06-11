@@ -89,6 +89,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "Track and monitor job applications from specified career pages and job boards." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51849f2d-1ae2-49a1-b81d-4d62a7ec5fb6/id-preview-5adbff00--93a28ecb-ba70-4ebf-bf33-24c3e04b41fa.lovable.app-1781136392846.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51849f2d-1ae2-49a1-b81d-4d62a7ec5fb6/id-preview-5adbff00--93a28ecb-ba70-4ebf-bf33-24c3e04b41fa.lovable.app-1781136392846.png" },
+      { name: "theme-color", content: "#0b0f1a" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Pursuit Bot" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
