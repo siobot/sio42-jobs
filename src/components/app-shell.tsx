@@ -13,7 +13,7 @@ const nav = [
   { to: "/settings", label: "Sources & filters", icon: Settings },
 ] as const;
 
-export function AppShell({ children, email }: { children: React.ReactNode; email?: string | null }) {
+export function AppShell({ children, email, isDemo }: { children: React.ReactNode; email?: string | null; isDemo?: boolean }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
 
