@@ -50,6 +50,21 @@ function AuthPage() {
     }
   }
 
+  async function tryDemo() {
+    setDemoBusy(true);
+    try {
+      const creds = await createDemo({ data: undefined as never });
+      const { error } = await supabase.auth.signInWithPassword(creds);
+      if (error) throw error;
+      toast.success("Demo account ready");
+      navigate({ to: "/" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not start demo");
+    } finally {
+      setDemoBusy(false);
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm p-6">
@@ -66,7 +81,7 @@ function AuthPage() {
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
-          <Button type="submit" disabled={busy} className="w-full">
+          <Button type="submit" disabled={busy || demoBusy} className="w-full">
             {busy ? "..." : mode === "signin" ? "Sign in" : "Create account"}
           </Button>
         </form>
@@ -77,6 +92,24 @@ function AuthPage() {
         >
           {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
         </button>
+        <div className="relative my-5">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">or</span>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={busy || demoBusy}
+          onClick={tryDemo}
+        >
+          {demoBusy ? "Setting up demo..." : "Try the demo"}
+        </Button>
+        <p className="text-xs text-muted-foreground mt-2 text-center">
+          No signup — explore with sample jobs and applications.
+        </p>
       </Card>
     </div>
   );
