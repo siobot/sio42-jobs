@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { setJobStatus } from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
-import { ExternalLink, Heart, Send, X, Archive } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { JobActions } from "@/components/job-actions";
+
 
 const searchSchema = z.object({
   status: z.enum(["all", "new", "interested", "applied", "dismissed", "archived"]).optional().default("new"),
