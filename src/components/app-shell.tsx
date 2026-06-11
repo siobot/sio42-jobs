@@ -41,7 +41,14 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
           aria-hidden
         />
         <div className="min-w-0 flex-1">
-          <div className="text-base font-semibold tracking-tight">Job Monitor</div>
+          <div className="text-base font-semibold tracking-tight flex items-center gap-2">
+            Job Monitor
+            {isDemo && (
+              <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">
+                Demo
+              </span>
+            )}
+          </div>
           {email && <div className="text-xs text-muted-foreground truncate">{email}</div>}
         </div>
         <button
