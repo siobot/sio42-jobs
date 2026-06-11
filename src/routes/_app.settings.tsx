@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy,
+  addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
 } from "@/lib/jobs/api.functions";
 import { DEFAULT_KEYWORD_CONFIG, type KeywordConfig } from "@/lib/jobs/types";
 import { Card } from "@/components/ui/card";
@@ -45,17 +45,37 @@ function SettingsPage() {
   );
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  greenhouse: "Greenhouse",
+  ashby: "Ashby",
+  lever: "Lever",
+  doist: "Doist",
+  remotive: "Remotive",
+  weworkremotely: "We Work Remotely",
+  workingnomads: "Working Nomads",
+};
+const ATS_TYPES = ["greenhouse", "ashby", "lever"] as const;
+const AGGREGATOR_TYPES = ["doist", "remotive", "weworkremotely", "workingnomads"] as const;
+type SourceRow = {
+  id: string;
+  type: string;
+  slug: string;
+  name: string;
+  enabled: boolean;
+};
+
 function SourcesTab() {
   const qc = useQueryClient();
   const add = useServerFn(addSource);
   const tog = useServerFn(toggleSource);
   const del = useServerFn(deleteSource);
+  const restore = useServerFn(restoreDefaults);
 
   const sources = useQuery({
     queryKey: ["sources"],
     queryFn: async () => {
       const { data } = await supabase.from("sources").select("*").order("type").order("name");
-      return data ?? [];
+      return (data ?? []) as SourceRow[];
     },
   });
   const addM = useMutation({
@@ -71,16 +91,51 @@ function SourcesTab() {
     mutationFn: (id: string) => del({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sources"] }),
   });
+  const restoreM = useMutation({
+    mutationFn: () => restore({ data: undefined as never }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["sources"] });
+      toast.success(
+        r.addedSources + r.addedManual === 0
+          ? "Nothing to restore — defaults already present"
+          : `Restored ${r.addedSources} source${r.addedSources === 1 ? "" : "s"} and ${r.addedManual} manual compan${r.addedManual === 1 ? "y" : "ies"}`,
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Restore failed"),
+  });
 
   const [type, setType] = useState<"greenhouse" | "ashby" | "lever">("greenhouse");
   const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
 
+  const all = sources.data ?? [];
+  const ats = all.filter((s) => (ATS_TYPES as readonly string[]).includes(s.type));
+  const aggregators = all.filter((s) => (AGGREGATOR_TYPES as readonly string[]).includes(s.type));
+
+  const renderRow = (s: SourceRow, isAggregator: boolean) => (
+    <div key={s.id} className="p-3 flex items-center gap-3">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground w-20 shrink-0">
+        {TYPE_LABELS[s.type] ?? s.type}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">{s.name}</div>
+        <div className="text-xs text-muted-foreground truncate">
+          {isAggregator ? "Aggregated board — no slug needed" : s.slug}
+        </div>
+      </div>
+      <Switch checked={s.enabled} onCheckedChange={(v) => togM.mutate({ id: s.id, enabled: v })} />
+      <Button size="icon" variant="ghost" onClick={() => delM.mutate(s.id)} aria-label="Remove">
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-4 mt-4">
-      <Card className="p-4">
+      <Card className="p-4 space-y-3">
+        <div className="text-sm font-medium">Add an ATS board</div>
         <form
-          className="grid grid-cols-[160px_1fr_1fr_auto] gap-2"
+          className="grid grid-cols-1 sm:grid-cols-[160px_1fr_1fr_auto] gap-2"
           onSubmit={(e) => { e.preventDefault(); if (slug && name) addM.mutate({ type, slug, name }); }}
         >
           <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
@@ -95,20 +150,44 @@ function SourcesTab() {
           <Input placeholder="Display name" value={name} onChange={(e) => setName(e.target.value)} />
           <Button type="submit" disabled={!slug || !name}><Plus className="h-4 w-4 mr-1" />Add</Button>
         </form>
+        <p className="text-xs text-muted-foreground">
+          Remote-job aggregators (Doist, Remotive, We Work Remotely, Working Nomads) are added automatically and listed below.
+        </p>
       </Card>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          ATS boards <span className="text-xs normal-case">({ats.length})</span>
+        </h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => restoreM.mutate()}
+          disabled={restoreM.isPending}
+        >
+          <RotateCcw className="h-3.5 w-3.5 mr-1" />
+          {restoreM.isPending ? "Restoring…" : "Restore default sources"}
+        </Button>
+      </div>
       <Card className="divide-y divide-border">
-        {(sources.data ?? []).map((s) => (
-          <div key={s.id} className="p-3 flex items-center gap-3">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground w-20">{s.type}</span>
-            <div className="flex-1">
-              <div className="text-sm font-medium">{s.name}</div>
-              <div className="text-xs text-muted-foreground">{s.slug}</div>
-            </div>
-            <Switch checked={s.enabled} onCheckedChange={(v) => togM.mutate({ id: s.id, enabled: v })} />
-            <Button size="icon" variant="ghost" onClick={() => delM.mutate(s.id)}><Trash2 className="h-4 w-4" /></Button>
+        {ats.length === 0 ? (
+          <div className="p-4 text-xs text-muted-foreground italic">No ATS boards yet.</div>
+        ) : (
+          ats.map((s) => renderRow(s, false))
+        )}
+      </Card>
+
+      <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide pt-2">
+        Remote-job boards <span className="text-xs normal-case">({aggregators.length})</span>
+      </h2>
+      <Card className="divide-y divide-border">
+        {aggregators.length === 0 ? (
+          <div className="p-4 text-xs text-muted-foreground italic">
+            No aggregator boards yet — click “Restore default sources” to add them.
           </div>
-        ))}
+        ) : (
+          aggregators.map((s) => renderRow(s, true))
+        )}
       </Card>
     </div>
   );

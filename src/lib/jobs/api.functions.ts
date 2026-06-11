@@ -14,7 +14,24 @@ export const runScan = createServerFn({ method: "POST" })
     return runScanForUser(context.supabase, context.userId, "manual");
   });
 
-// Seed defaults for a fresh account
+// Default aggregator boards (no slug; one row per board)
+const DEFAULT_AGGREGATORS = [
+  { type: "doist" as const, name: "Doist" },
+  { type: "remotive" as const, name: "Remotive" },
+  { type: "weworkremotely" as const, name: "We Work Remotely" },
+  { type: "workingnomads" as const, name: "Working Nomads" },
+];
+
+function buildDefaultSourceRows(userId: string) {
+  return [
+    ...DEFAULT_GREENHOUSE.map((c) => ({ user_id: userId, type: "greenhouse" as const, slug: c.slug, name: c.name })),
+    ...DEFAULT_ASHBY.map((c) => ({ user_id: userId, type: "ashby" as const, slug: c.slug, name: c.name })),
+    ...DEFAULT_LEVER.map((c) => ({ user_id: userId, type: "lever" as const, slug: c.slug, name: c.name })),
+    ...DEFAULT_AGGREGATORS.map((a) => ({ user_id: userId, type: a.type, slug: "", name: a.name })),
+  ];
+}
+
+// Seed defaults for a fresh account (no-op when sources already exist)
 export const seedDefaults = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -22,17 +39,41 @@ export const seedDefaults = createServerFn({ method: "POST" })
     const { count } = await supabase.from("sources").select("id", { count: "exact", head: true }).eq("user_id", userId);
     if ((count ?? 0) > 0) return { seeded: false };
 
-    const rows = [
-      ...DEFAULT_GREENHOUSE.map((c) => ({ user_id: userId, type: "greenhouse" as const, slug: c.slug, name: c.name })),
-      ...DEFAULT_ASHBY.map((c) => ({ user_id: userId, type: "ashby" as const, slug: c.slug, name: c.name })),
-      ...DEFAULT_LEVER.map((c) => ({ user_id: userId, type: "lever" as const, slug: c.slug, name: c.name })),
-    ];
-    await supabase.from("sources").insert(rows);
+    await supabase.from("sources").insert(buildDefaultSourceRows(userId));
     await supabase.from("manual_companies").insert(
       DEFAULT_MANUAL.map((m) => ({ user_id: userId, name: m.name, url: m.url })),
     );
     await supabase.from("keyword_config").upsert({ user_id: userId, config: DEFAULT_KEYWORD_CONFIG });
     return { seeded: true };
+  });
+
+// Restore any default sources/manual companies that are missing without
+// touching user-added or user-edited rows.
+export const restoreDefaults = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: existing } = await supabase
+      .from("sources")
+      .select("type, slug")
+      .eq("user_id", userId);
+    const have = new Set((existing ?? []).map((r) => `${r.type}::${r.slug}`));
+    const missing = buildDefaultSourceRows(userId).filter(
+      (r) => !have.has(`${r.type}::${r.slug}`),
+    );
+    if (missing.length) await supabase.from("sources").insert(missing);
+
+    const { data: manualExisting } = await supabase
+      .from("manual_companies")
+      .select("name")
+      .eq("user_id", userId);
+    const haveNames = new Set((manualExisting ?? []).map((r) => r.name.toLowerCase()));
+    const missingManual = DEFAULT_MANUAL
+      .filter((m) => !haveNames.has(m.name.toLowerCase()))
+      .map((m) => ({ user_id: userId, name: m.name, url: m.url }));
+    if (missingManual.length) await supabase.from("manual_companies").insert(missingManual);
+
+    return { addedSources: missing.length, addedManual: missingManual.length };
   });
 
 // Touch a manual company's last_checked_at
