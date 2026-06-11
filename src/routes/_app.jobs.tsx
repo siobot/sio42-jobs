@@ -29,8 +29,6 @@ type Status = "new" | "interested" | "applied" | "dismissed" | "archived";
 function JobsPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const qc = useQueryClient();
-  const setStatus = useServerFn(setJobStatus);
 
   const [q, setQ] = useState("");
   const [source, setSource] = useState<string>("all");
@@ -50,11 +48,6 @@ function JobsPage() {
     },
   });
 
-  const mut = useMutation({
-    mutationFn: (v: { id: string; status: Status }) => setStatus({ data: v }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["jobs"] }); qc.invalidateQueries({ queryKey: ["dashboard-stats"] }); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
-  });
 
   const tabs: Array<{ key: typeof search.status; label: string }> = [
     { key: "new", label: "New" },
