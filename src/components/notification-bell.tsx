@@ -52,6 +52,14 @@ export function NotificationBell() {
   const items = q.data ?? [];
   const unread = items.filter((n) => !n.read_at).length;
 
+  // Register SW (production only) and keep home-screen badge in sync.
+  useEffect(() => {
+    ensureServiceWorker();
+  }, []);
+  useEffect(() => {
+    updateAppBadge(unread);
+  }, [unread]);
+
   // Foreground toast for newly arrived unread notifications
   const seenIds = useRef<Set<string>>(new Set());
   const primed = useRef(false);
