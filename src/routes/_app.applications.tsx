@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { addManualApplication, deleteApplication, updateApplication } from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
@@ -14,16 +15,23 @@ import {
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/applications")({
-  head: () => ({ meta: [{ title: "Applications — Job Monitor" }] }),
-  component: ApplicationsPage,
-});
-
 type Stage = "applied" | "screen" | "interview" | "offer" | "rejected" | "withdrawn";
 const STAGES: Stage[] = ["applied", "screen", "interview", "offer", "rejected", "withdrawn"];
 
+const searchSchema = z.object({
+  stage: z.enum(["all", "applied", "screen", "interview", "offer", "rejected", "withdrawn"]).optional().default("all"),
+});
+
+export const Route = createFileRoute("/_app/applications")({
+  head: () => ({ meta: [{ title: "Applications — Job Monitor" }] }),
+  validateSearch: searchSchema,
+  component: ApplicationsPage,
+});
+
 function ApplicationsPage() {
   const qc = useQueryClient();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const update = useServerFn(updateApplication);
   const addManual = useServerFn(addManualApplication);
   const del = useServerFn(deleteApplication);
@@ -37,6 +45,18 @@ function ApplicationsPage() {
       return data ?? [];
     },
   });
+
+  const counts = useMemo(() => {
+    const c: Record<Stage, number> = { applied: 0, screen: 0, interview: 0, offer: 0, rejected: 0, withdrawn: 0 };
+    for (const a of apps.data ?? []) c[a.stage as Stage] = (c[a.stage as Stage] ?? 0) + 1;
+    return c;
+  }, [apps.data]);
+  const total = apps.data?.length ?? 0;
+
+  const filtered = useMemo(() => {
+    const list = apps.data ?? [];
+    return search.stage === "all" ? list : list.filter((a) => a.stage === search.stage);
+  }, [apps.data, search.stage]);
 
   const updM = useMutation({
     mutationFn: (v: { id: string; stage?: Stage; next_action?: string | null; notes?: string | null }) => update({ data: v }),
@@ -57,9 +77,35 @@ function ApplicationsPage() {
   const [nt, setNt] = useState("");
   const [nu, setNu] = useState("");
 
+  const stats: Array<{ key: typeof search.stage; label: string; value: number }> = [
+    { key: "all", label: "Total", value: total },
+    { key: "applied", label: "Applied", value: counts.applied },
+    { key: "screen", label: "Screen", value: counts.screen },
+    { key: "interview", label: "Interview", value: counts.interview },
+    { key: "offer", label: "Offer", value: counts.offer },
+    { key: "rejected", label: "Rejected", value: counts.rejected },
+    { key: "withdrawn", label: "Withdrawn", value: counts.withdrawn },
+  ];
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Applications</h1>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        {stats.map((s) => {
+          const active = search.stage === s.key;
+          return (
+            <button
+              key={s.key}
+              onClick={() => navigate({ search: { stage: s.key } })}
+              className={`text-left rounded-md border p-3 transition-colors ${active ? "bg-accent border-foreground/20" : "hover:bg-accent/40"}`}
+            >
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
+              <div className="text-2xl font-semibold mt-0.5">{s.value}</div>
+            </button>
+          );
+        })}
+      </div>
 
       <Card className="p-4">
         <form
@@ -74,7 +120,7 @@ function ApplicationsPage() {
       </Card>
 
       <div className="space-y-3">
-        {(apps.data ?? []).map((a) => (
+        {filtered.map((a) => (
           <Card key={a.id} className="p-4 space-y-3">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
@@ -112,8 +158,10 @@ function ApplicationsPage() {
             </div>
           </Card>
         ))}
-        {(apps.data ?? []).length === 0 && (
-          <Card className="p-6 text-sm text-muted-foreground text-center">No applications yet.</Card>
+        {filtered.length === 0 && (
+          <Card className="p-6 text-sm text-muted-foreground text-center">
+            {total === 0 ? "No applications yet." : "No applications in this stage."}
+          </Card>
         )}
       </div>
     </div>
