@@ -26,14 +26,14 @@ import { Trash2, Plus, Upload, RotateCcw, Save, Sparkles, Ban, Globe, MapPin, La
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/settings")({
-  head: () => ({ meta: [{ title: "Sources & filters — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Settings — Job Monitor" }] }),
   component: SettingsPage,
 });
 
 function SettingsPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Sources & filters</h1>
+      <h1 className="text-2xl font-semibold">Settings</h1>
       <Tabs defaultValue="sources">
         <TabsList>
           <TabsTrigger value="sources">ATS sources</TabsTrigger>

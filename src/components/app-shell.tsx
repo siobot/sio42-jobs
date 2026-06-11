@@ -11,7 +11,7 @@ const nav = [
   { to: "/applications", label: "Applications", icon: Send },
   { to: "/checklist", label: "Checklist", icon: ListChecks },
   { to: "/history", label: "Scan history", icon: History },
-  { to: "/settings", label: "Sources & filters", icon: Settings },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function AppShell({ children, email, isDemo }: { children: React.ReactNode; email?: string | null; isDemo?: boolean }) {
