@@ -175,6 +175,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          data: Json
+          id: string
+          kind: string
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          data?: Json
+          id?: string
+          kind: string
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          data?: Json
+          id?: string
+          kind?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -231,6 +264,36 @@ export type Database = {
           source_counts?: Json
           started_at?: string
           triggered_by?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scan_schedules: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          frequency: string
+          last_run_at: string | null
+          next_run_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          frequency?: string
+          last_run_at?: string | null
+          next_run_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          frequency?: string
+          last_run_at?: string | null
+          next_run_at?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
