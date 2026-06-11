@@ -47,7 +47,7 @@ export async function sendPushToUser(
   let sent = 0;
   let removed = 0;
   await Promise.all(
-    subs.map(async (s) => {
+    subs.map(async (s: { id: string; endpoint: string; p256dh: string; auth: string }) => {
       const sub = {
         endpoint: s.endpoint as string,
         keys: { p256dh: s.p256dh as string, auth: s.auth as string },
