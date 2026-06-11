@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy,
+  addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
 } from "@/lib/jobs/api.functions";
 import { DEFAULT_KEYWORD_CONFIG, type KeywordConfig } from "@/lib/jobs/types";
 import { Card } from "@/components/ui/card";
