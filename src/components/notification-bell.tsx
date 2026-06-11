@@ -10,6 +10,7 @@ import {
   markAllNotificationsRead,
   deleteNotification,
 } from "@/lib/jobs/api.functions";
+import { ensureServiceWorker, updateAppBadge } from "@/lib/push/register";
 import { Button } from "@/components/ui/button";
 import {
   Popover, PopoverContent, PopoverTrigger,
