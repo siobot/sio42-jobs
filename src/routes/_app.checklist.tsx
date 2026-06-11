@@ -9,6 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Check, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/checklist")({
@@ -54,6 +64,7 @@ function ChecklistPage() {
 
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -84,7 +95,7 @@ function ChecklistPage() {
             url={c.url}
             lastCheckedAt={c.last_checked_at}
             onClickName={() => markM.mutate(c.id)}
-            onDelete={() => delM.mutate(c.id)}
+            onDeleteRequest={() => setPendingDelete({ id: c.id, name: c.name })}
             onSaveUrl={(url) => updateM.mutateAsync({ id: c.id, url })}
           />
         ))}
@@ -92,6 +103,29 @@ function ChecklistPage() {
           <p className="p-6 text-sm text-muted-foreground text-center">No companies yet — add one above.</p>
         )}
       </Card>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete company?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{pendingDelete?.name}</strong> from the checklist? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDelete) delM.mutate(pendingDelete.id);
+                setPendingDelete(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -107,8 +141,8 @@ function freshness(lastCheckedAt: string | null) {
 }
 
 function ChecklistRow({
-  id: _id, name, url, lastCheckedAt, onClickName, onDelete, onSaveUrl,
-}: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDelete: () => void; onSaveUrl: (url: string) => Promise<unknown> }) {
+  id: _id, name, url, lastCheckedAt, onClickName, onDeleteRequest, onSaveUrl,
+}: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDeleteRequest: () => void; onSaveUrl: (url: string) => Promise<unknown> }) {
   const rel = useRelativeTime(lastCheckedAt);
   const f = freshness(lastCheckedAt);
   const [isEditing, setIsEditing] = useState(false);
@@ -167,7 +201,7 @@ function ChecklistRow({
         {lastCheckedAt ? `Checked ${rel}` : "Never checked"}
       </div>
       <Button size="icon" variant="ghost" onClick={startEdit} aria-label="Edit URL"><Pencil className="h-4 w-4" /></Button>
-      <Button size="icon" variant="ghost" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
+      <Button size="icon" variant="ghost" onClick={onDeleteRequest}><Trash2 className="h-4 w-4" /></Button>
     </div>
   );
 }
