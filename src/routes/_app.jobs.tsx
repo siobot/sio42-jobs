@@ -93,7 +93,7 @@ function JobsPage() {
 
       <Card className="divide-y divide-border">
         {(jobs.data ?? []).map((j) => (
-          <div key={j.id} className="p-3 flex items-start gap-3">
+          <div key={j.id} className="p-3 flex flex-col sm:flex-row sm:items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <a href={j.url} target="_blank" rel="noreferrer" className="font-medium text-sm hover:underline truncate">
@@ -114,22 +114,12 @@ function JobsPage() {
                 ))}
               </div>
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button size="icon" variant="ghost" title="Interested" onClick={() => mut.mutate({ id: j.id, status: "interested" })}>
-                <Heart className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" title="Applied" onClick={() => mut.mutate({ id: j.id, status: "applied" })}>
-                <Send className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" title="Dismiss" onClick={() => mut.mutate({ id: j.id, status: "dismissed" })}>
-                <X className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" title="Archive" onClick={() => mut.mutate({ id: j.id, status: "archived" })}>
-                <Archive className="h-4 w-4" />
-              </Button>
+            <div className="shrink-0">
+              <JobActions jobId={j.id} status={j.status as Status} />
             </div>
           </div>
         ))}
+
         {(jobs.data ?? []).length === 0 && (
           <p className="p-6 text-sm text-muted-foreground text-center">No jobs match this filter.</p>
         )}
