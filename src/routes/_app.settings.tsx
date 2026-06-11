@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
-  getSchedule, saveSchedule,
+  getSchedule, saveSchedule, savePushSubscription, deletePushSubscription, hasPushSubscription,
 } from "@/lib/jobs/api.functions";
+import { VAPID_PUBLIC_KEY } from "@/lib/push/config";
+import { subscribeToPush, unsubscribeFromPush, getCurrentSubscription } from "@/lib/push/register";
 import { DEFAULT_KEYWORD_CONFIG, type KeywordConfig } from "@/lib/jobs/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -643,6 +645,118 @@ function ScheduleTab() {
           {saveM.isPending ? "Saving…" : "Save schedule"}
         </Button>
       </Card>
+
+      <PushNotificationsCard />
     </div>
+  );
+}
+
+function PushNotificationsCard() {
+  const qc = useQueryClient();
+  const save = useServerFn(savePushSubscription);
+  const del = useServerFn(deletePushSubscription);
+  const has = useServerFn(hasPushSubscription);
+
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [subscribed, setSubscribed] = useState<boolean>(false);
+  const [permission, setPermission] = useState<NotificationPermission | "unknown">("unknown");
+  const [busy, setBusy] = useState(false);
+
+  const status = useQuery({
+    queryKey: ["push-status"],
+    queryFn: () => has() as Promise<{ count: number }>,
+  });
+
+  useEffect(() => {
+    const ok = typeof window !== "undefined"
+      && "serviceWorker" in navigator
+      && "PushManager" in window
+      && "Notification" in window;
+    setSupported(ok);
+    if (ok) {
+      setPermission(Notification.permission);
+      getCurrentSubscription().then((s) => setSubscribed(Boolean(s)));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status.data && status.data.count > 0) setSubscribed(true);
+  }, [status.data]);
+
+  const enable = async () => {
+    setBusy(true);
+    try {
+      const sub = await subscribeToPush(VAPID_PUBLIC_KEY);
+      if (!sub) {
+        toast.error(Notification.permission === "denied"
+          ? "Notifications are blocked in your browser settings."
+          : "Could not enable push notifications.");
+        setPermission(Notification.permission);
+        return;
+      }
+      const json = sub.toJSON();
+      await save({ data: {
+        endpoint: sub.endpoint,
+        p256dh: json.keys?.p256dh ?? "",
+        auth: json.keys?.auth ?? "",
+        user_agent: navigator.userAgent.slice(0, 500),
+      } });
+      setSubscribed(true);
+      setPermission(Notification.permission);
+      toast.success("Push notifications enabled");
+      qc.invalidateQueries({ queryKey: ["push-status"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to enable");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disable = async () => {
+    setBusy(true);
+    try {
+      const sub = await unsubscribeFromPush();
+      if (sub) await del({ data: { endpoint: sub.endpoint } });
+      setSubscribed(false);
+      toast.success("Push notifications disabled");
+      qc.invalidateQueries({ queryKey: ["push-status"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to disable");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <div className="text-sm font-medium">Push notifications</div>
+          <div className="text-xs text-muted-foreground">
+            Get an alert on your device — and a badge on the app icon — when new jobs are found,
+            even when the app is closed.
+          </div>
+        </div>
+        <Switch
+          checked={subscribed}
+          disabled={busy || supported === false}
+          onCheckedChange={(v) => (v ? enable() : disable())}
+        />
+      </div>
+      {supported === false && (
+        <div className="text-xs text-muted-foreground">
+          Your browser doesn't support push notifications.
+        </div>
+      )}
+      {supported && permission === "denied" && (
+        <div className="text-xs text-destructive">
+          Notifications are blocked. Enable them in your browser site settings, then try again.
+        </div>
+      )}
+      <div className="text-xs text-muted-foreground">
+        <strong>iPhone / iPad:</strong> first add this site to your Home Screen via Safari's
+        Share menu, open the installed app, then enable the toggle. Badge updates require iOS 16.4+.
+      </div>
+    </Card>
   );
 }

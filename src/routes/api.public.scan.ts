@@ -49,6 +49,23 @@ export const Route = createFileRoute("/api/public/scan")({
                 body: `Scanned ${r.fetched} listing${r.fetched === 1 ? "" : "s"}.`,
                 data: { newCount: r.newCount, runId: r.runId, matched: r.matched },
               });
+              try {
+                const { sendPushToUser } = await import("@/lib/push/server");
+                const { count: unread } = await supabaseAdmin
+                  .from("notifications")
+                  .select("id", { count: "exact", head: true })
+                  .eq("user_id", userId)
+                  .is("read_at", null);
+                await sendPushToUser(supabaseAdmin, userId, {
+                  title: `${r.newCount} new job${r.newCount === 1 ? "" : "s"} found`,
+                  body: `Scanned ${r.fetched} listing${r.fetched === 1 ? "" : "s"}.`,
+                  url: "/jobs",
+                  badgeCount: unread ?? r.newCount,
+                  tag: "scan_complete",
+                });
+              } catch (e) {
+                console.warn("Push send failed:", e instanceof Error ? e.message : e);
+              }
             }
           } catch (e) {
             results.push({ userId, error: e instanceof Error ? e.message : String(e) });
