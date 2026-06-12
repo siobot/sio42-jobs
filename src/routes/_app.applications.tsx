@@ -177,7 +177,7 @@ function ApplicationsPage() {
     : null;
 
   const setRange = (key: RangeKey) =>
-    navigate({ search: (prev) => ({ ...prev, range: key, from: undefined, to: undefined }) });
+    navigate({ search: (prev: typeof search) => ({ ...prev, range: key, from: undefined, to: undefined }) });
 
   return (
     <div className="space-y-4">
@@ -214,7 +214,7 @@ function ApplicationsPage() {
               selected={{ from: customFrom ?? undefined, to: customTo ?? undefined }}
               onSelect={(r) => {
                 navigate({
-                  search: (prev) => ({
+                  search: (prev: typeof search) => ({
                     ...prev,
                     range: "custom",
                     from: r?.from ? toISODate(r.from) : undefined,
@@ -246,7 +246,7 @@ function ApplicationsPage() {
           return (
             <button
               key={s.key}
-              onClick={() => navigate({ search: (prev) => ({ ...prev, stage: s.key }) })}
+              onClick={() => navigate({ search: (prev: typeof search) => ({ ...prev, stage: s.key }) })}
               className={`text-left rounded-md border p-3 transition-colors ${active ? "bg-accent border-foreground/20" : "hover:bg-accent/40"}`}
             >
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
