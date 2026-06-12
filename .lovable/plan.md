@@ -1,46 +1,31 @@
-# Home-screen install + push badge notifications
+## Goal
+Filter the Applications page by date so you can see how many you applied to in a given week/month. Quick presets plus a custom date range. Both stat cards and the list reflect the selected range.
 
-Add two layers so Safari "Add to Home Screen" gets a real app icon and an unread badge when new jobs are found in the background.
+## UX
 
-## 1. Installability (manifest only)
+Add a date-filter row above the stat grid on `/applications`:
 
-- Add `public/manifest.webmanifest` with name "Pursuit Bot", short name, theme + background colors, `display: "standalone"`, `start_url: "/"`, and icon entries (192, 512, maskable).
-- Generate app icons (192, 512, 180 apple-touch) into `public/icons/`.
-- Add `<link rel="manifest">`, `<meta name="theme-color">`, and `<link rel="apple-touch-icon">` in `src/routes/__root.tsx` head.
+- Preset chips: **All time**, **This week**, **Last week**, **This month**, **Last month**, **Custom…**
+- Picking **Custom…** opens a popover with two calendar inputs (from / to) using the shadcn Calendar in a Popover.
+- Selected range is shown next to the chips (e.g. "Jun 1 – Jun 12") with a small "Clear" button when not "All time".
+- Calendar periods: weeks are Monday→Sunday, months are 1st→last day, all in the user's local timezone.
 
-This gives a real icon + standalone window on iOS/Android home screen.
+The stat cards (Total / Applied / Screen / Interview / Offer / Rejected / Withdrawn) recompute against the filtered set so e.g. "Total" shows applications in that period. The list below is filtered identically (still further narrowed by the clicked stage chip).
 
-## 2. Push + badge
+## Implementation
 
-Use the Web Push standard (works on iOS 16.4+ once the app is installed to home screen; works on Android Chrome anytime). No third-party service needed.
+All frontend, no schema or server-function changes.
 
-**Backend**
-- New table `push_subscriptions` (user_id, endpoint, p256dh, auth, created_at) with RLS scoped to `auth.uid()`.
-- Generate VAPID keys once and store as secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`.
-- Server fns: `getVapidPublicKey`, `savePushSubscription`, `deletePushSubscription`.
-- In `api.public.scan.ts`, after inserting a `scan_complete` notification with `newCount > 0`, also send a web push to all of that user's subscriptions using `web-push` package. Payload includes title, body, and `badgeCount` (= unread notifications count).
-- On 404/410 from push endpoint, delete that subscription row.
+**`src/routes/_app.applications.tsx`**
+- Extend `validateSearch` with:
+  - `range`: `"all" | "this_week" | "last_week" | "this_month" | "last_month" | "custom"` (default `"all"`)
+  - `from`, `to`: optional ISO date strings (`YYYY-MM-DD`), only meaningful when `range === "custom"`
+- Compute `[fromDate, toDate]` from `range` (or `from`/`to` for custom). Helper lives inline; Monday-start week via `getDay()` math, month via `new Date(y, m, 1)` / `new Date(y, m+1, 0)`.
+- Apply the date window to `apps.data` once → `inRange`. Derive both `counts`/`total` and `filtered` from `inRange` (stage filter applied after).
+- Render a filter bar:
+  - Preset buttons that call `navigate({ search: prev => ({ ...prev, range: key, from: undefined, to: undefined }) })`.
+  - "Custom…" button opens a `Popover` containing a shadcn `Calendar` in `mode="range"`; on select, navigate with `range: "custom"`, `from`, `to` (ISO date strings).
+  - Active preset is visually highlighted; a "Clear" button resets to `range: "all"`.
+- Empty-state copy updates to mention the active range when filtered to zero.
 
-**Frontend**
-- New `public/sw.js` service worker (messaging-only — exempt from PWA preview ban per skill rules):
-  - `push` handler: `self.registration.showNotification(...)` and `navigator.setAppBadge(badgeCount)`.
-  - `notificationclick` handler: focus/open the app at `/`.
-- Register `/sw.js` from a small client wrapper only in production (skip preview/dev/iframe).
-- In Settings → "Scheduled scans" tab, add an "Enable push notifications" toggle that:
-  - Requests `Notification.requestPermission()`.
-  - Subscribes via `registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidPublicKey })`.
-  - Saves the subscription via server fn.
-  - Toggling off unsubscribes and deletes the row.
-- When the app is foreground and the bell polls show unread notifications, also call `navigator.setAppBadge(unreadCount)` / `clearAppBadge()` so the home-screen badge stays in sync.
-
-## Platform notes
-
-- **iOS Safari**: Push + badge only works after the user uses "Add to Home Screen" and then opens the installed app once to grant permission. Plain Safari bookmarks do not support push.
-- **Android Chrome**: Works whether installed or just in browser.
-- **Desktop Safari/Chrome**: Works after permission grant.
-
-## Out of scope
-
-- Email notifications (no email domain configured).
-- Custom notification sounds / actions.
-- Offline app-shell caching (this is a messaging-only SW, not an offline PWA).
+No other files change. The existing `Unauthorized` runtime noise on `/` is unrelated to this request and out of scope here.
