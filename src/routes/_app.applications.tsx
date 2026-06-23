@@ -138,18 +138,22 @@ function ApplicationsPage() {
     return search.stage === "all" ? inRange : inRange.filter((a) => a.stage === search.stage);
   }, [inRange, search.stage]);
 
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["applications"] });
+    qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+  };
   const updM = useMutation({
     mutationFn: (v: { id: string; stage?: Stage; next_action?: string | null; notes?: string | null }) => update({ data: v }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["applications"] }),
+    onSuccess: invalidateAll,
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
   const delM = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["applications"] }),
+    onSuccess: invalidateAll,
   });
   const addM = useMutation({
     mutationFn: (v: { company: string; title: string; url?: string }) => addManual({ data: v }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["applications"] }); setNc(""); setNt(""); setNu(""); },
+    onSuccess: () => { invalidateAll(); setNc(""); setNt(""); setNu(""); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Add failed"),
   });
 
