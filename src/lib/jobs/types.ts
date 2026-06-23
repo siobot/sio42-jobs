@@ -86,6 +86,9 @@ export const DEFAULT_ASHBY = [
   { slug: "kit", name: "Kit" }, { slug: "camunda", name: "Camunda" },
   { slug: "loom", name: "Loom" }, { slug: "ashby", name: "Ashby" },
   { slug: "plain", name: "Plain" },
+  { slug: "attio", name: "Attio" },
+  { slug: "duvo", name: "Duvo" },
+  { slug: "wundergraph", name: "WunderGraph" },
 ];
 export const DEFAULT_LEVER = [
   { slug: "appfollow", name: "AppFollow" }, { slug: "whereby", name: "Whereby" },
