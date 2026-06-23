@@ -29,7 +29,7 @@ function Dashboard() {
       const [news, interested, applied, latestRun] = await Promise.all([
         supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "new"),
         supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "interested"),
-        supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "applied"),
+        supabase.from("applications").select("id", { count: "exact", head: true }),
         supabase.from("scan_runs").select("*").order("started_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
       return {
