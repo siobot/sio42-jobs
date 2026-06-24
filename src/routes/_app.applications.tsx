@@ -183,8 +183,20 @@ function ApplicationsPage() {
     qc.invalidateQueries({ queryKey: ["application-events"] });
     qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
   };
+  const updateEvent = useServerFn(updateApplicationEvent);
+  const deleteEvent = useServerFn(deleteApplicationEvent);
+
   const updM = useMutation({
-    mutationFn: (v: { id: string; stage?: Stage; notes?: string | null }) => update({ data: v }),
+    mutationFn: (v: {
+      id: string;
+      stage?: Stage;
+      notes?: string | null;
+      company?: string;
+      title?: string;
+      url?: string | null;
+      applied_at?: string;
+      linkedin_easy_apply?: boolean;
+    }) => update({ data: v }),
     onSuccess: invalidateAll,
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
@@ -197,12 +209,23 @@ function ApplicationsPage() {
     onSuccess: () => { invalidateAll(); setNc(""); setNt(""); setNu(""); setNeasy(false); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Add failed"),
   });
+  const updEventM = useMutation({
+    mutationFn: (v: { id: string; changed_at: string }) => updateEvent({ data: v }),
+    onSuccess: invalidateAll,
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+  });
+  const delEventM = useMutation({
+    mutationFn: (id: string) => deleteEvent({ data: { id } }),
+    onSuccess: invalidateAll,
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
+  });
 
   const [nc, setNc] = useState("");
   const [nt, setNt] = useState("");
   const [nu, setNu] = useState("");
   const [neasy, setNeasy] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const stats: Array<{ key: typeof search.stage; label: string; value: number }> = [
     { key: "all", label: "Total", value: total },
