@@ -254,10 +254,11 @@ export const deleteApplication = createServerFn({ method: "POST" })
   });
 
 async function resyncApplicationStage(
-  supabase: Awaited<ReturnType<typeof requireSupabaseAuth>>["supabase"] | any,
+  supabase: any,
   userId: string,
   applicationId: string,
 ) {
+
   const { data: latest } = await supabase
     .from("application_events")
     .select("stage")
