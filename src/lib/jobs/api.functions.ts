@@ -216,7 +216,7 @@ export const updateApplication = createServerFn({ method: "POST" })
       company: z.string().min(1).max(200).optional(),
       title: z.string().min(1).max(300).optional(),
       url: z.string().url().nullable().optional().or(z.literal("")),
-      applied_at: z.string().nullable().optional(),
+      applied_at: z.string().optional(),
       linkedin_easy_apply: z.boolean().optional(),
     }).parse(input))
   .handler(async ({ data, context }) => {
