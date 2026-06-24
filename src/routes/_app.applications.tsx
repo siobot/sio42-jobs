@@ -4,7 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { addManualApplication, deleteApplication, updateApplication } from "@/lib/jobs/api.functions";
+import {
+  addManualApplication, deleteApplication, updateApplication,
+  updateApplicationEvent, deleteApplicationEvent,
+} from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +20,11 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ExternalLink, Plus, Trash2, CalendarIcon, X, Search } from "lucide-react";
+import { ExternalLink, Plus, Trash2, CalendarIcon, X, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 type Stage = "applied" | "screen" | "interview" | "offer" | "rejected" | "withdrawn";
