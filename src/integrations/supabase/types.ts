@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_events: {
+        Row: {
+          application_id: string
+          changed_at: string
+          created_at: string
+          id: string
+          stage: Database["public"]["Enums"]["application_stage"]
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          changed_at?: string
+          created_at?: string
+          id?: string
+          stage: Database["public"]["Enums"]["application_stage"]
+          user_id: string
+        }
+        Update: {
+          application_id?: string
+          changed_at?: string
+          created_at?: string
+          id?: string
+          stage?: Database["public"]["Enums"]["application_stage"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_events_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           applied_at: string
@@ -21,6 +56,7 @@ export type Database = {
           created_at: string
           id: string
           job_id: string | null
+          linkedin_easy_apply: boolean
           next_action: string | null
           next_action_at: string | null
           notes: string | null
@@ -36,6 +72,7 @@ export type Database = {
           created_at?: string
           id?: string
           job_id?: string | null
+          linkedin_easy_apply?: boolean
           next_action?: string | null
           next_action_at?: string | null
           notes?: string | null
@@ -51,6 +88,7 @@ export type Database = {
           created_at?: string
           id?: string
           job_id?: string | null
+          linkedin_easy_apply?: boolean
           next_action?: string | null
           next_action_at?: string | null
           notes?: string | null
