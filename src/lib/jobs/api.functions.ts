@@ -253,16 +253,43 @@ export const deleteApplication = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+async function resyncApplicationStage(
+  supabase: Awaited<ReturnType<typeof requireSupabaseAuth>>["supabase"] | any,
+  userId: string,
+  applicationId: string,
+) {
+  const { data: latest } = await supabase
+    .from("application_events")
+    .select("stage")
+    .eq("application_id", applicationId)
+    .eq("user_id", userId)
+    .order("changed_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!latest) return;
+  await supabase
+    .from("applications")
+    .update({ stage: latest.stage })
+    .eq("id", applicationId)
+    .eq("user_id", userId);
+}
+
 export const updateApplicationEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid(), changed_at: z.string() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("application_events")
+    const { data: row, error } = await context.supabase.from("application_events")
       .update({ changed_at: data.changed_at })
       .eq("id", data.id)
-      .eq("user_id", context.userId);
+      .eq("user_id", context.userId)
+      .select("application_id")
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (row?.application_id) {
+      await resyncApplicationStage(context.supabase, context.userId, row.application_id);
+    }
     return { ok: true };
   });
 
@@ -270,13 +297,22 @@ export const deleteApplicationEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
+    const { data: existing } = await context.supabase.from("application_events")
+      .select("application_id")
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
     const { error } = await context.supabase.from("application_events")
       .delete()
       .eq("id", data.id)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
+    if (existing?.application_id) {
+      await resyncApplicationStage(context.supabase, context.userId, existing.application_id);
+    }
     return { ok: true };
   });
+
 
 // Import legacy JSON
 export const importLegacy = createServerFn({ method: "POST" })
