@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { addManualApplication, deleteApplication, updateApplication } from "@/lib/jobs/api.functions";
+import {
+  addManualApplication, deleteApplication, updateApplication,
+  updateApplicationEvent, deleteApplicationEvent,
+} from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +20,11 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ExternalLink, Plus, Trash2, CalendarIcon, X, Search } from "lucide-react";
+import { ExternalLink, Plus, Trash2, CalendarIcon, X, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 type Stage = "applied" | "screen" | "interview" | "offer" | "rejected" | "withdrawn";
@@ -177,8 +183,20 @@ function ApplicationsPage() {
     qc.invalidateQueries({ queryKey: ["application-events"] });
     qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
   };
+  const updateEvent = useServerFn(updateApplicationEvent);
+  const deleteEvent = useServerFn(deleteApplicationEvent);
+
   const updM = useMutation({
-    mutationFn: (v: { id: string; stage?: Stage; notes?: string | null }) => update({ data: v }),
+    mutationFn: (v: {
+      id: string;
+      stage?: Stage;
+      notes?: string | null;
+      company?: string;
+      title?: string;
+      url?: string | null;
+      applied_at?: string;
+      linkedin_easy_apply?: boolean;
+    }) => update({ data: v }),
     onSuccess: invalidateAll,
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
@@ -191,12 +209,23 @@ function ApplicationsPage() {
     onSuccess: () => { invalidateAll(); setNc(""); setNt(""); setNu(""); setNeasy(false); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Add failed"),
   });
+  const updEventM = useMutation({
+    mutationFn: (v: { id: string; changed_at: string }) => updateEvent({ data: v }),
+    onSuccess: invalidateAll,
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+  });
+  const delEventM = useMutation({
+    mutationFn: (id: string) => deleteEvent({ data: { id } }),
+    onSuccess: invalidateAll,
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
+  });
 
   const [nc, setNc] = useState("");
   const [nt, setNt] = useState("");
   const [nu, setNu] = useState("");
   const [neasy, setNeasy] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const stats: Array<{ key: typeof search.stage; label: string; value: number }> = [
     { key: "all", label: "Total", value: total },
@@ -337,18 +366,19 @@ function ApplicationsPage() {
             <Card key={a.id} className="p-4 space-y-3">
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-lg font-semibold leading-tight">{a.company}</span>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-lg font-semibold leading-tight">
+                      {a.title}
+                      {a.company ? <span className="text-muted-foreground font-normal"> — {a.company}</span> : null}
+                    </span>
+                    {a.url && (
+                      <a href={a.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
                     {a.linkedin_easy_apply && (
                       <Badge variant="secondary" className="text-[10px]">Easy Apply</Badge>
                     )}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-0.5">
-                    {a.url ? (
-                      <a href={a.url} target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-1">
-                        {a.title} <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : a.title}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     Applied {a.applied_at?.slice(0, 10)}
@@ -360,7 +390,8 @@ function ApplicationsPage() {
                     {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button size="icon" variant="ghost" onClick={() => delM.mutate(a.id)}><Trash2 className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => setEditingId(a.id)} title="Edit"><Pencil className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => delM.mutate(a.id)} title="Delete"><Trash2 className="h-4 w-4" /></Button>
               </div>
 
               {timeline.length > 0 && (
@@ -393,6 +424,147 @@ function ApplicationsPage() {
           </Card>
         )}
       </div>
+
+      <EditApplicationDialog
+        appId={editingId}
+        app={editingId ? (apps.data ?? []).find((x) => x.id === editingId) ?? null : null}
+        events={editingId ? eventsByApp.get(editingId) ?? [] : []}
+        onClose={() => setEditingId(null)}
+        onSaveApp={(patch) => updM.mutate(patch)}
+        onSaveEvent={(v) => updEventM.mutate(v)}
+        onDeleteEvent={(id) => delEventM.mutate(id)}
+      />
     </div>
+  );
+}
+
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromDatetimeLocal(v: string): string {
+  return new Date(v).toISOString();
+}
+
+type AppRow = {
+  id: string; company: string; title: string; url: string | null;
+  stage: string; applied_at: string | null; notes: string | null;
+  linkedin_easy_apply: boolean | null;
+};
+
+function EditApplicationDialog({
+  appId, app, events, onClose, onSaveApp, onSaveEvent, onDeleteEvent,
+}: {
+  appId: string | null;
+  app: AppRow | null;
+  events: Array<{ id: string; stage: string; changed_at: string }>;
+  onClose: () => void;
+  onSaveApp: (patch: { id: string; company?: string; title?: string; url?: string | null; applied_at?: string; linkedin_easy_apply?: boolean }) => void;
+  onSaveEvent: (v: { id: string; changed_at: string }) => void;
+  onDeleteEvent: (id: string) => void;
+}) {
+  const open = !!appId && !!app;
+  const [company, setCompany] = useState("");
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [appliedAt, setAppliedAt] = useState("");
+  const [easy, setEasy] = useState(false);
+
+  useEffect(() => {
+    if (app) {
+      setCompany(app.company ?? "");
+      setTitle(app.title ?? "");
+      setUrl(app.url ?? "");
+      setAppliedAt(app.applied_at ? toDatetimeLocal(app.applied_at) : "");
+      setEasy(!!app.linkedin_easy_apply);
+    }
+  }, [app?.id]);
+
+  if (!app || !appId) {
+    return (
+      <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+        <DialogContent />
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Edit application</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Role</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Company</Label>
+            <Input value={company} onChange={(e) => setCompany(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>URL</Label>
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+          </div>
+          <div className="space-y-1">
+            <Label>Applied at</Label>
+            <Input type="datetime-local" value={appliedAt} onChange={(e) => setAppliedAt(e.target.value)} />
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <Checkbox checked={easy} onCheckedChange={(v) => setEasy(v === true)} className="h-5 w-5" id="edit-easy" />
+            <Label htmlFor="edit-easy" className="cursor-pointer">LinkedIn Easy Apply</Label>
+          </label>
+
+          <div className="pt-2">
+            <div className="text-sm font-medium mb-2">Status history</div>
+            {events.length === 0 && (
+              <div className="text-xs text-muted-foreground">No status changes recorded.</div>
+            )}
+            <div className="space-y-2">
+              {events.map((e) => (
+                <div key={e.id} className="flex items-center gap-2">
+                  <span className="text-xs capitalize w-20 shrink-0">{e.stage}</span>
+                  <Input
+                    type="datetime-local"
+                    value={toDatetimeLocal(e.changed_at)}
+                    onChange={(ev) => {
+                      const v = ev.target.value;
+                      if (v) onSaveEvent({ id: e.id, changed_at: fromDatetimeLocal(v) });
+                    }}
+                    className="h-8 text-xs"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onDeleteEvent(e.id)}
+                    title="Remove status entry"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => {
+              onSaveApp({
+                id: appId,
+                company,
+                title,
+                url: url || null,
+                applied_at: appliedAt ? fromDatetimeLocal(appliedAt) : undefined,
+                linkedin_easy_apply: easy,
+              });
+              onClose();
+            }}
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
