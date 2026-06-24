@@ -471,7 +471,7 @@ function EditApplicationDialog({
   const [appliedAt, setAppliedAt] = useState("");
   const [easy, setEasy] = useState(false);
 
-  useMemo(() => {
+  useEffect(() => {
     if (app) {
       setCompany(app.company ?? "");
       setTitle(app.title ?? "");
