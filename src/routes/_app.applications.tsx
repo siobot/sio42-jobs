@@ -366,18 +366,19 @@ function ApplicationsPage() {
             <Card key={a.id} className="p-4 space-y-3">
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-lg font-semibold leading-tight">{a.company}</span>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-lg font-semibold leading-tight">
+                      {a.title}
+                      {a.company ? <span className="text-muted-foreground font-normal"> — {a.company}</span> : null}
+                    </span>
+                    {a.url && (
+                      <a href={a.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
                     {a.linkedin_easy_apply && (
                       <Badge variant="secondary" className="text-[10px]">Easy Apply</Badge>
                     )}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-0.5">
-                    {a.url ? (
-                      <a href={a.url} target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-1">
-                        {a.title} <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : a.title}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     Applied {a.applied_at?.slice(0, 10)}
@@ -389,7 +390,8 @@ function ApplicationsPage() {
                     {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button size="icon" variant="ghost" onClick={() => delM.mutate(a.id)}><Trash2 className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => setEditingId(a.id)} title="Edit"><Pencil className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => delM.mutate(a.id)} title="Delete"><Trash2 className="h-4 w-4" /></Button>
               </div>
 
               {timeline.length > 0 && (
