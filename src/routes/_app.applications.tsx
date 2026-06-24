@@ -321,8 +321,8 @@ function ApplicationsPage() {
           <Input placeholder="Role" value={nt} onChange={(e) => setNt(e.target.value)} />
           <Input placeholder="URL (optional)" value={nu} onChange={(e) => setNu(e.target.value)} />
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <Checkbox checked={neasy} onCheckedChange={(v) => setNeasy(v === true)} id="easy-apply" />
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <Checkbox checked={neasy} onCheckedChange={(v) => setNeasy(v === true)} id="easy-apply" className="h-5 w-5" />
               <Label htmlFor="easy-apply" className="cursor-pointer">LinkedIn Easy Apply</Label>
             </label>
             <Button type="submit" disabled={!nc || !nt}><Plus className="h-4 w-4 mr-1" />Log application</Button>
