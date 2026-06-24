@@ -213,9 +213,15 @@ export const updateApplication = createServerFn({ method: "POST" })
       next_action: z.string().max(500).nullable().optional(),
       next_action_at: z.string().nullable().optional(),
       notes: z.string().max(5000).nullable().optional(),
+      company: z.string().min(1).max(200).optional(),
+      title: z.string().min(1).max(300).optional(),
+      url: z.string().url().nullable().optional().or(z.literal("")),
+      applied_at: z.string().nullable().optional(),
+      linkedin_easy_apply: z.boolean().optional(),
     }).parse(input))
   .handler(async ({ data, context }) => {
     const { id, ...patch } = data;
+    if (patch.url === "") patch.url = null;
     await context.supabase.from("applications").update(patch).eq("id", id).eq("user_id", context.userId);
     return { ok: true };
   });
@@ -244,6 +250,31 @@ export const deleteApplication = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("applications").delete().eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+export const updateApplicationEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), changed_at: z.string() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("application_events")
+      .update({ changed_at: data.changed_at })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteApplicationEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("application_events")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
