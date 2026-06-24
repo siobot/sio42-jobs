@@ -227,14 +227,17 @@ export const addManualApplication = createServerFn({ method: "POST" })
       company: z.string().min(1).max(200),
       title: z.string().min(1).max(300),
       url: z.string().url().optional().or(z.literal("")),
+      linkedin_easy_apply: z.boolean().optional(),
     }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("applications").insert({
       user_id: context.userId, company: data.company, title: data.title,
       url: data.url || null, stage: "applied",
+      linkedin_easy_apply: data.linkedin_easy_apply ?? false,
     });
     return { ok: true };
   });
+
 
 export const deleteApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
