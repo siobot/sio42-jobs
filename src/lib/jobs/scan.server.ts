@@ -71,10 +71,10 @@ export async function runScanForUser(
 
   const matchedRaw = filterJobs(all, config);
   // Dedupe by external_id (same posting can appear from multiple sources)
-  const seenIds = new Set<string>();
+  const dedupeIds = new Set<string>();
   const matched = matchedRaw.filter((j) => {
-    if (seenIds.has(j.external_id)) return false;
-    seenIds.add(j.external_id);
+    if (dedupeIds.has(j.external_id)) return false;
+    dedupeIds.add(j.external_id);
     return true;
   });
   const now = new Date().toISOString();
