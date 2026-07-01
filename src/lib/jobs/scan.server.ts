@@ -69,7 +69,14 @@ export async function runScanForUser(
     }
   });
 
-  const matched = filterJobs(all, config);
+  const matchedRaw = filterJobs(all, config);
+  // Dedupe by external_id (same posting can appear from multiple sources)
+  const dedupeIds = new Set<string>();
+  const matched = matchedRaw.filter((j) => {
+    if (dedupeIds.has(j.external_id)) return false;
+    dedupeIds.add(j.external_id);
+    return true;
+  });
   const now = new Date().toISOString();
 
   // Diff against existing rows
@@ -111,7 +118,9 @@ export async function runScanForUser(
     if (newRows.length > 0) {
       for (let i = 0; i < newRows.length; i += chunkSize) {
         const chunk = newRows.slice(i, i + chunkSize);
-        const { error } = await supabase.from("jobs").insert(chunk);
+        const { error } = await supabase
+          .from("jobs")
+          .upsert(chunk, { onConflict: "user_id,external_id", ignoreDuplicates: true });
         if (error) errors.push({ source: "db_insert", error: error.message });
       }
     }
