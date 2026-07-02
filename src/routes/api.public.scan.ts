@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/public/scan")({
     handlers: {
       POST: async ({ request }) => {
         const apiKey = request.headers.get("apikey");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
+        const expected = process.env.SB_PUBLISHABLE_KEY;
         if (!expected || apiKey !== expected) {
           return new Response("Unauthorized", { status: 401 });
         }
