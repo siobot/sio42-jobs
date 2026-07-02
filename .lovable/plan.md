@@ -1,21 +1,27 @@
-Plan: Rename Supabase environment variables to use the SB_ prefix in the three server-side files so they work with Workspace Build Secrets (which blocks the SUPABASE_ prefix).
+## Plan: Create .env.local with external Supabase credentials
 
-Affected files and changes:
-1. `src/integrations/supabase/client.server.ts`
-   - `process.env.SUPABASE_URL` → `process.env.SB_URL`
-   - `process.env.SUPABASE_SERVICE_ROLE_KEY` → `process.env.SB_SERVICE_ROLE_KEY`
-   - Update the local variable names and the error-message string accordingly.
+### Goal
+Stop Lovable Cloud from silently reverting the project to the old Supabase credentials by moving the external project's values to `.env.local`, which Vite loads at higher precedence than `.env` and which Lovable Cloud does not manage.
 
-2. `src/integrations/supabase/auth-middleware.ts`
-   - `process.env.SUPABASE_URL` → `process.env.SB_URL`
-   - `process.env.SUPABASE_PUBLISHABLE_KEY` → `process.env.SB_PUBLISHABLE_KEY`
-   - Update the local variable names and the error-message string accordingly.
+### What will be created
+**`.env.local`** (new file) with these values:
+```
+VITE_SUPABASE_URL=https://tidjygzrpsqyaznrlrhe.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ImT-V6uVIoOV1Kv3tZe6jg_4-dfTPQw
+VITE_SUPABASE_PROJECT_ID=tidjygzrpsqyaznrlrhe
+```
 
-3. `src/routes/api.public.scan.ts`
-   - `process.env.SUPABASE_PUBLISHABLE_KEY` → `process.env.SB_PUBLISHABLE_KEY`
+### Why this works
+- `.env.local` is already ignored by the project's `.gitignore` (`*.local`), so it is not tracked in git.
+- Vite loads `.env.local` after `.env` and overrides matching keys, so the client will always use the external Supabase project even if Cloud rewrites `.env`.
+- Lovable Cloud only regenerates `.env`, not `.env.local`.
 
-4. `src/integrations/supabase/client.ts` is intentionally left untouched, as requested.
+### What is intentionally left out of this file
+- Server-side secrets (`SB_URL`, `SB_PUBLISHABLE_KEY`, `SB_SERVICE_ROLE_KEY`) will stay in **Workspace Settings → Build Secrets** for the deployed runtime, as previously discussed.
+- `VAPID_PRIVATE_KEY` also stays in Build Secrets.
 
-Note: `client.server.ts` and `auth-middleware.ts` are auto-generated integration files. Editing them is necessary here because the external Supabase setup is not managed by Lovable Cloud, but be aware that re-running the Supabase integration generator may overwrite these files.
+### Future protection
+After this change, any Cloud-driven rewrite of `.env` is harmless because `.env.local` takes precedence. If the external credentials ever change, update `.env.local` — never rely on `.env` again.
 
-After the renames, the corresponding Build Secrets must be named `SB_URL`, `SB_SERVICE_ROLE_KEY`, and `SB_PUBLISHABLE_KEY` for the deployed app to work.
+### Note on full disconnection from Cloud
+Lovable Cloud cannot be fully removed from this project once attached. The Connectors → Cloud → Disable toggle only affects future projects. `.env.local` is the supported workaround.
