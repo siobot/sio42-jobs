@@ -1,21 +1,21 @@
-## Problem
+Plan: Rename Supabase environment variables to use the SB_ prefix in the three server-side files so they work with Workspace Build Secrets (which blocks the SUPABASE_ prefix).
 
-Scan history shows `db_insert: duplicate key value violates unique constraint "jobs_user_id_external_id_key"` on recent runs. When that error hits, the whole insert chunk is aborted by Postgres, so the "N new" counter is reported but zero rows actually reach the `jobs` table — which is why the feed stays empty even though scans report new matches.
+Affected files and changes:
+1. `src/integrations/supabase/client.server.ts`
+   - `process.env.SUPABASE_URL` → `process.env.SB_URL`
+   - `process.env.SUPABASE_SERVICE_ROLE_KEY` → `process.env.SB_SERVICE_ROLE_KEY`
+   - Update the local variable names and the error-message string accordingly.
 
-Two root causes in `src/lib/jobs/scan.server.ts`:
+2. `src/integrations/supabase/auth-middleware.ts`
+   - `process.env.SUPABASE_URL` → `process.env.SB_URL`
+   - `process.env.SUPABASE_PUBLISHABLE_KEY` → `process.env.SB_PUBLISHABLE_KEY`
+   - Update the local variable names and the error-message string accordingly.
 
-1. **Intra-batch duplicates.** `matched` can contain the same `external_id` more than once (same posting surfaced by multiple aggregator sources, or listed twice by one source). The existing-ID lookup filters against the DB but not against the batch itself, so two "new" rows with the same `external_id` go into one `insert()` and Postgres rejects the whole chunk.
-2. **No conflict handling on insert.** Any single duplicate (from a race with a prior run, or the case above) aborts the entire 500-row chunk instead of skipping just that row.
+3. `src/routes/api.public.scan.ts`
+   - `process.env.SUPABASE_PUBLISHABLE_KEY` → `process.env.SB_PUBLISHABLE_KEY`
 
-## Fix
+4. `src/integrations/supabase/client.ts` is intentionally left untouched, as requested.
 
-Edit `src/lib/jobs/scan.server.ts` only:
+Note: `client.server.ts` and `auth-middleware.ts` are auto-generated integration files. Editing them is necessary here because the external Supabase setup is not managed by Lovable Cloud, but be aware that re-running the Supabase integration generator may overwrite these files.
 
-- Before diffing against existing IDs, dedupe `matched` by `external_id` (keep first occurrence). Use the deduped list for both the "existing" lookup and `newCount`.
-- Replace the chunked `supabase.from("jobs").insert(chunk)` with `.upsert(chunk, { onConflict: "user_id,external_id", ignoreDuplicates: true })` so any straggler duplicate is silently skipped instead of failing the batch.
-- Keep `newCount` as the count of rows we attempted to insert as new (post-dedupe, pre-existing filter), matching current UX.
-
-## Out of scope
-
-- The `greenhouse/Userflow: 404 Not Found` source error — unrelated to jobs missing from the feed; that source is just returning 404 and contributes 0 rows.
-- Any schema changes; the unique constraint stays as-is.
+After the renames, the corresponding Build Secrets must be named `SB_URL`, `SB_SERVICE_ROLE_KEY`, and `SB_PUBLISHABLE_KEY` for the deployed app to work.
