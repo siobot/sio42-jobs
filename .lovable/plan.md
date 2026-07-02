@@ -1,27 +1,18 @@
-## Plan: Create .env.local with external Supabase credentials
+## Plan: Add `.env.local` fallback to `auth-middleware.ts`
 
-### Goal
-Stop Lovable Cloud from silently reverting the project to the old Supabase credentials by moving the external project's values to `.env.local`, which Vite loads at higher precedence than `.env` and which Lovable Cloud does not manage.
+### What will change
+Update `src/integrations/supabase/auth-middleware.ts` so it reads Supabase URL and publishable key with the same fallback pattern as `src/integrations/supabase/client.ts`:
 
-### What will be created
-**`.env.local`** (new file) with these values:
-```
-VITE_SUPABASE_URL=https://tidjygzrpsqyaznrlrhe.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ImT-V6uVIoOV1Kv3tZe6jg_4-dfTPQw
-VITE_SUPABASE_PROJECT_ID=tidjygzrpsqyaznrlrhe
-```
+- `process.env.SB_URL` → `import.meta.env.VITE_SUPABASE_URL || process.env.SB_URL`
+- `process.env.SB_PUBLISHABLE_KEY` → `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SB_PUBLISHABLE_KEY`
 
-### Why this works
-- `.env.local` is already ignored by the project's `.gitignore` (`*.local`), so it is not tracked in git.
-- Vite loads `.env.local` after `.env` and overrides matching keys, so the client will always use the external Supabase project even if Cloud rewrites `.env`.
-- Lovable Cloud only regenerates `.env`, not `.env.local`.
+### Why
+This lets the auth middleware pick up the external Supabase credentials from the public `.env.local` file (which Vite exposes via `import.meta.env.VITE_*`) without requiring Build Secrets. The `SB_*` Build Secrets remain the fallback for deployed runtime.
 
-### What is intentionally left out of this file
-- Server-side secrets (`SB_URL`, `SB_PUBLISHABLE_KEY`, `SB_SERVICE_ROLE_KEY`) will stay in **Workspace Settings → Build Secrets** for the deployed runtime, as previously discussed.
-- `VAPID_PRIVATE_KEY` also stays in Build Secrets.
+### What is untouched
+- `src/integrations/supabase/client.ts` remains unchanged, as requested previously.
+- `src/integrations/supabase/client.server.ts` remains unchanged (service role key is server-only and has no Vite fallback).
+- `src/routes/api.public.scan.ts` remains unchanged (it uses `SB_PUBLISHABLE_KEY` intentionally).
 
-### Future protection
-After this change, any Cloud-driven rewrite of `.env` is harmless because `.env.local` takes precedence. If the external credentials ever change, update `.env.local` — never rely on `.env` again.
-
-### Note on full disconnection from Cloud
-Lovable Cloud cannot be fully removed from this project once attached. The Connectors → Cloud → Disable toggle only affects future projects. `.env.local` is the supported workaround.
+### Note
+`auth-middleware.ts` is an auto-generated integration file. This edit may be overwritten if the Supabase integration is regenerated, but it is necessary for the current external-Supabase setup.
