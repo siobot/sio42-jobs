@@ -9,13 +9,13 @@ import type { Database } from './types'
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     
-    const SB_URL = process.env.SB_URL;
-    const SB_PUBLISHABLE_KEY = process.env.SB_PUBLISHABLE_KEY;
+    const SB_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SB_URL;
+    const SB_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SB_PUBLISHABLE_KEY;
 
     if (!SB_URL || !SB_PUBLISHABLE_KEY) {
       const missing = [
-        ...(!SB_URL ? ['SB_URL'] : []),
-        ...(!SB_PUBLISHABLE_KEY ? ['SB_PUBLISHABLE_KEY'] : []),
+        ...(!SB_URL ? ['VITE_SUPABASE_URL / SB_URL'] : []),
+        ...(!SB_PUBLISHABLE_KEY ? ['VITE_SUPABASE_PUBLISHABLE_KEY / SB_PUBLISHABLE_KEY'] : []),
       ];
       const message = `Missing Supabase environment variable(s): ${missing.join(', ')}.`;
       console.error(`[Supabase] ${message}`);
