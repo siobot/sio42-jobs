@@ -129,9 +129,6 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
             />
             <span className="text-sm font-semibold truncate">Job Monitor</span>
           </div>
-          <div className="ml-auto">
-            <NotificationBell />
-          </div>
         </header>
         <div className="max-w-6xl mx-auto p-4 sm:p-6 md:p-8">{children}</div>
       </main>
