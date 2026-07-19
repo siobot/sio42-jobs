@@ -581,16 +581,31 @@ function ScheduleTab() {
 
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [frequency, setFrequency] = useState<"hourly" | "6h" | "daily" | "weekly" | null>(null);
+  const [runAtLocal, setRunAtLocal] = useState<string>("09:00");
+  const [timezone, setTimezone] = useState<string>(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
+  });
 
   useEffect(() => {
     if (q.data && enabled === null) {
       setEnabled(Boolean(q.data.enabled));
       setFrequency((q.data.frequency ?? "daily") as "hourly" | "6h" | "daily" | "weekly");
+      if (q.data.run_at_local) setRunAtLocal(q.data.run_at_local.slice(0, 5));
+      if (q.data.timezone) setTimezone(q.data.timezone);
     }
   }, [q.data, enabled]);
 
   const saveM = useMutation({
-    mutationFn: () => save({ data: { enabled: enabled ?? false, frequency: frequency ?? "daily" } }),
+    mutationFn: () => save({ data: {
+      enabled: enabled ?? false,
+      frequency: frequency ?? "daily",
+      run_at_local: runAtLocal,
+      timezone,
+    } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["scan-schedule"] });
       toast.success("Schedule saved");
@@ -604,6 +619,7 @@ function ScheduleTab() {
 
   const last = q.data?.last_run_at ? new Date(q.data.last_run_at) : null;
   const next = q.data?.next_run_at ? new Date(q.data.next_run_at) : null;
+  const showTimeOfDay = frequency === "daily" || frequency === "weekly";
 
   return (
     <div className="space-y-4 mt-4">
@@ -634,6 +650,38 @@ function ScheduleTab() {
             </SelectContent>
           </Select>
         </div>
+
+        {showTimeOfDay && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+            <div className="space-y-2">
+              <Label htmlFor="run-at" className="text-xs uppercase tracking-wide text-muted-foreground">
+                Time of day
+              </Label>
+              <Input
+                id="run-at"
+                type="time"
+                value={runAtLocal}
+                onChange={(e) => setRunAtLocal(e.target.value)}
+                disabled={!enabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tz" className="text-xs uppercase tracking-wide text-muted-foreground">
+                Timezone
+              </Label>
+              <Input
+                id="tz"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                placeholder="America/New_York"
+                disabled={!enabled}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                IANA timezone (e.g. America/New_York, Europe/London). Actual runs fire within ~15 min of this time.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="text-xs text-muted-foreground space-y-0.5">
           <div>Last automatic scan: {last ? last.toLocaleString() : "never"}</div>

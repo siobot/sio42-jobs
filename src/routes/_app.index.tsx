@@ -52,6 +52,17 @@ function Dashboard() {
     },
   });
 
+  const interested = useQuery({
+    queryKey: ["dashboard-interested"],
+    queryFn: async () => {
+      const { data } = await supabase.from("jobs")
+        .select("id, company, title, url, source, status_updated_at, matched_groups, status")
+        .eq("status", "interested")
+        .order("status_updated_at", { ascending: false }).limit(50);
+      return data ?? [];
+    },
+  });
+
   const scanM = useMutation({
     mutationFn: () => scan({ data: undefined as never }),
     onSuccess: (r) => {
@@ -77,8 +88,8 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="New matches" value={stats.data?.newCount ?? 0} to="/jobs?status=new" />
-        <StatCard label="Interested" value={stats.data?.interested ?? 0} to="/jobs?status=interested" />
+        <StatCard label="New matches" value={stats.data?.newCount ?? 0} to="/" />
+        <StatCard label="Interested" value={stats.data?.interested ?? 0} to="/" />
         <StatCard label="Applied" value={stats.data?.applied ?? 0} to="/applications" />
       </div>
 
@@ -105,6 +116,31 @@ function Dashboard() {
             <p className="text-sm text-muted-foreground py-2">No jobs yet — run a scan to start.</p>
           )}
 
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="text-sm font-medium mb-3">Interested</h2>
+        <div className="divide-y divide-border">
+          {(interested.data ?? []).map((j) => (
+            <div key={j.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <a href={j.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate block">
+                  {j.title}
+                </a>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {j.company} · {j.source}
+                  {(j.matched_groups ?? []).map((g) => (
+                    <Badge key={g} variant="secondary" className="ml-1 text-[10px]">{g}</Badge>
+                  ))}
+                </div>
+              </div>
+              <JobActions jobId={j.id} status={j.status as Status} />
+            </div>
+          ))}
+          {(interested.data ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground py-2">No jobs marked interested yet.</p>
+          )}
         </div>
       </Card>
     </div>

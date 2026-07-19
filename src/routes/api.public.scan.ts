@@ -1,18 +1,7 @@
 // Public endpoint hit by pg_cron every 15 minutes.
 // Runs scans for users whose schedule is due, then writes an in-app notification.
 import { createFileRoute } from "@tanstack/react-router";
-
-function nextRunAt(frequency: string, from: Date): Date {
-  const d = new Date(from);
-  switch (frequency) {
-    case "hourly": d.setUTCHours(d.getUTCHours() + 1); break;
-    case "6h": d.setUTCHours(d.getUTCHours() + 6); break;
-    case "weekly": d.setUTCDate(d.getUTCDate() + 7); break;
-    case "daily":
-    default: d.setUTCDate(d.getUTCDate() + 1); break;
-  }
-  return d;
-}
+import { computeNextRun, type Frequency } from "@/lib/jobs/schedule";
 
 export const Route = createFileRoute("/api/public/scan")({
   server: {
@@ -29,15 +18,18 @@ export const Route = createFileRoute("/api/public/scan")({
         const nowIso = new Date().toISOString();
         const { data: due, error } = await supabaseAdmin
           .from("scan_schedules")
-          .select("user_id, frequency")
+          .select("*")
           .eq("enabled", true)
           .lte("next_run_at", nowIso);
         if (error) return new Response(error.message, { status: 500 });
 
         const results: Array<{ userId: string; newCount?: number; error?: string }> = [];
-        for (const row of due ?? []) {
+        for (const raw of due ?? []) {
+          const row = raw as unknown as Record<string, unknown>;
           const userId = row.user_id as string;
-          const frequency = row.frequency as string;
+          const frequency = row.frequency as Frequency;
+          const runAtLocal = (row.run_at_local as string | null) ?? "09:00";
+          const timezone = (row.timezone as string | null) ?? "UTC";
           try {
             const r = await runScanForUser(supabaseAdmin, userId, "cron");
             results.push({ userId, newCount: r.newCount });
@@ -59,7 +51,7 @@ export const Route = createFileRoute("/api/public/scan")({
                 await sendPushToUser(supabaseAdmin, userId, {
                   title: `${r.newCount} new job${r.newCount === 1 ? "" : "s"} found`,
                   body: `Scanned ${r.fetched} listing${r.fetched === 1 ? "" : "s"}.`,
-                  url: "/jobs",
+                  url: "/",
                   badgeCount: unread ?? r.newCount,
                   tag: "scan_complete",
                 });
@@ -71,10 +63,12 @@ export const Route = createFileRoute("/api/public/scan")({
             results.push({ userId, error: e instanceof Error ? e.message : String(e) });
           } finally {
             const now = new Date();
-            await supabaseAdmin.from("scan_schedules").update({
+            const next = computeNextRun(frequency, { from: now, runAtLocal, timezone });
+            const patch = {
               last_run_at: now.toISOString(),
-              next_run_at: nextRunAt(frequency, now).toISOString(),
-            }).eq("user_id", userId);
+              next_run_at: next.toISOString(),
+            } as unknown as never;
+            await supabaseAdmin.from("scan_schedules").update(patch).eq("user_id", userId);
           }
         }
         return new Response(JSON.stringify({ ok: true, ran: results.length, results }), {

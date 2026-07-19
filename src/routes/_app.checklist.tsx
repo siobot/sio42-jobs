@@ -22,7 +22,7 @@ import {
 import { Check, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/checklist")({
-  head: () => ({ meta: [{ title: "Manual checklist — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Other Career Pages — Job Monitor" }] }),
   component: ChecklistPage,
 });
 
@@ -69,7 +69,7 @@ function ChecklistPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Manual checklist</h1>
+        <h1 className="text-2xl font-semibold">Other Career Pages</h1>
         <p className="text-sm text-muted-foreground">Click a company name to open their careers page — the timestamp updates automatically.</p>
       </div>
 

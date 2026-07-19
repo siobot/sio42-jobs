@@ -1,15 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Briefcase, ListChecks, Send, Settings, History, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, ListChecks, Send, Settings, History, LogOut, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { NotificationBell } from "@/components/notification-bell";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/jobs", label: "Jobs feed", icon: Briefcase },
   { to: "/applications", label: "Applications", icon: Send },
-  { to: "/checklist", label: "Checklist", icon: ListChecks },
+  { to: "/checklist", label: "Other Career Pages", icon: ListChecks },
   { to: "/history", label: "Scan history", icon: History },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -130,9 +128,6 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
               aria-hidden
             />
             <span className="text-sm font-semibold truncate">Job Monitor</span>
-          </div>
-          <div className="ml-auto">
-            <NotificationBell />
           </div>
         </header>
         <div className="max-w-6xl mx-auto p-4 sm:p-6 md:p-8">{children}</div>
