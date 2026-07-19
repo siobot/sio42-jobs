@@ -21,6 +21,7 @@ export function JobActions({ jobId, status }: JobActionsProps) {
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       qc.invalidateQueries({ queryKey: ["dashboard-recent"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-interested"] });
       if (next === "applied") toast.success("Added to application tracker");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
