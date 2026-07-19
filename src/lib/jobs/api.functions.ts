@@ -433,16 +433,17 @@ export const getSchedule = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data } = await context.supabase
       .from("scan_schedules")
-      .select("enabled, frequency, last_run_at, next_run_at, run_at_local, timezone")
+      .select("*")
       .eq("user_id", context.userId)
       .maybeSingle();
-    return data ?? {
-      enabled: false,
-      frequency: "daily" as Frequency,
-      last_run_at: null,
-      next_run_at: null,
-      run_at_local: "09:00",
-      timezone: null,
+    const row = (data ?? {}) as Record<string, unknown>;
+    return {
+      enabled: Boolean(row.enabled ?? false),
+      frequency: (row.frequency as Frequency) ?? ("daily" as Frequency),
+      last_run_at: (row.last_run_at as string | null) ?? null,
+      next_run_at: (row.next_run_at as string | null) ?? null,
+      run_at_local: (row.run_at_local as string | null) ?? "09:00",
+      timezone: (row.timezone as string | null) ?? null,
     };
   });
 
@@ -458,18 +459,16 @@ export const saveSchedule = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const runAtLocal = data.run_at_local ?? "09:00";
     const timezone = data.timezone ?? "UTC";
-    const next = computeNextRun(data.frequency, {
-      runAtLocal,
-      timezone,
-    }).toISOString();
-    const { error } = await context.supabase.from("scan_schedules").upsert({
+    const next = computeNextRun(data.frequency, { runAtLocal, timezone }).toISOString();
+    const row = {
       user_id: context.userId,
       enabled: data.enabled,
       frequency: data.frequency,
       run_at_local: runAtLocal,
       timezone,
       next_run_at: next,
-    });
+    } as unknown as never;
+    const { error } = await context.supabase.from("scan_schedules").upsert(row);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
