@@ -69,7 +69,7 @@ function ChecklistPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Manual checklist</h1>
+        <h1 className="text-2xl font-semibold">Other Career Pages</h1>
         <p className="text-sm text-muted-foreground">Click a company name to open their careers page — the timestamp updates automatically.</p>
       </div>
 
