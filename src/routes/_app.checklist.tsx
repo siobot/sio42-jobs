@@ -22,7 +22,7 @@ import {
 import { Check, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/checklist")({
-  head: () => ({ meta: [{ title: "Manual checklist — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Other Career Pages — Job Monitor" }] }),
   component: ChecklistPage,
 });
 
