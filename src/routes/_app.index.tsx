@@ -52,6 +52,17 @@ function Dashboard() {
     },
   });
 
+  const interested = useQuery({
+    queryKey: ["dashboard-interested"],
+    queryFn: async () => {
+      const { data } = await supabase.from("jobs")
+        .select("id, company, title, url, source, status_updated_at, matched_groups, status")
+        .eq("status", "interested")
+        .order("status_updated_at", { ascending: false }).limit(50);
+      return data ?? [];
+    },
+  });
+
   const scanM = useMutation({
     mutationFn: () => scan({ data: undefined as never }),
     onSuccess: (r) => {
