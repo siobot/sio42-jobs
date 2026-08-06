@@ -48,6 +48,14 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          // Opaque sb_publishable_* keys must travel in `apikey`, while the
+          // user's JWT stays in `Authorization`.
+          fetch: (input, init) => {
+            const headers = new Headers(init?.headers);
+            headers.set('apikey', SUPABASE_PUBLISHABLE_KEY);
+            headers.set('Authorization', `Bearer ${token}`);
+            return fetch(input, { ...init, headers });
+          },
         },
         auth: {
           storage: undefined,
