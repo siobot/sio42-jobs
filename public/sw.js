@@ -40,6 +40,10 @@ self.addEventListener("notificationclick", (event) => {
   const url = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
     (async () => {
+      // Opening the app means the alerts have been seen — clear the icon badge.
+      if ("clearAppBadge" in self.navigator) {
+        try { await self.navigator.clearAppBadge(); } catch {}
+      }
       const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of all) {
         if ("focus" in client) {
