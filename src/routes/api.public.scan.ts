@@ -7,11 +7,23 @@ export const Route = createFileRoute("/api/public/scan")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Preferred: dedicated cron token (build-secret friendly name).
+        // Fallback: legacy `apikey` == publishable key check, for old pg_cron jobs.
+        const cronSecret = process.env.SCAN_CRON_SECRET;
+        const provided = request.headers.get("x-cron-secret");
         const apiKey = request.headers.get("apikey");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!expected || apiKey !== expected) {
-          return new Response("Unauthorized", { status: 401 });
+        const publishable =
+          process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SB_PUBLISHABLE_KEY;
+
+        const okCron = Boolean(cronSecret) && provided === cronSecret;
+        const okLegacy = Boolean(publishable) && apiKey === publishable;
+        if (!okCron && !okLegacy) {
+          if (!cronSecret && !publishable) {
+            return new Response("Unauthorized: no cron secret configured on the server", { status: 401 });
+          }
+          return new Response("Unauthorized: invalid cron secret", { status: 401 });
         }
+
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { runScanForUser } = await import("@/lib/jobs/scan.server");
 
