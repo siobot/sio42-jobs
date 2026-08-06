@@ -22,12 +22,27 @@ function createSupabaseAdminClient() {
   }
 
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const key = SUPABASE_SERVICE_ROLE_KEY;
+
+  return createClient<Database>(SUPABASE_URL, key, {
     auth: {
       storage: undefined,
       persistSession: false,
       autoRefreshToken: false,
-    }
+    },
+    global: {
+      // New-format sb_secret_* keys are opaque strings, not JWTs. PostgREST
+      // rejects them in `Authorization: Bearer` ("Expected 3 parts in JWT"),
+      // so send them only via the `apikey` header.
+      fetch: (input, init) => {
+        const headers = new Headers(init?.headers);
+        if (key.startsWith('sb_') && headers.get('Authorization') === `Bearer ${key}`) {
+          headers.delete('Authorization');
+        }
+        headers.set('apikey', key);
+        return fetch(input, { ...init, headers });
+      },
+    },
   });
 }
 
