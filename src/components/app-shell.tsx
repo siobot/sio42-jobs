@@ -1,7 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, ListChecks, Send, Settings, History, LogOut, Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { markAllNotificationsRead } from "@/lib/jobs/api.functions";
+import { ensureServiceWorker, updateAppBadge } from "@/lib/push/register";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -21,6 +23,39 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
     setOpen(false);
   }, [path]);
 
+  // Opening / returning to the app means notifications have been seen:
+  // clear the home-screen icon badge and mark them read server-side.
+  const lastClearRef = useRef(0);
+  useEffect(() => {
+    ensureServiceWorker();
+
+    let cancelled = false;
+    const clearBadge = async () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastClearRef.current < 30_000) return; // debounce rapid focus events
+      lastClearRef.current = now;
+      await updateAppBadge(0);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (cancelled || !data.session) return;
+        await markAllNotificationsRead();
+      } catch {
+        // non-fatal: badge is already cleared locally
+      }
+    };
+
+    void clearBadge();
+    const onVisibility = () => void clearBadge();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onVisibility);
+    };
+  }, []);
+
   // lock body scroll while drawer is open
   useEffect(() => {
     if (!open) return;
@@ -30,6 +65,7 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
       document.body.style.overflow = prev;
     };
   }, [open]);
+
 
   const sidebar = (
     <>
