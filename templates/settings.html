@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — Job Monitor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #2b2b30;
+      color: #d0cee0;
+      line-height: 1.6;
+      padding: 2.5rem;
+      max-width: 840px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse, rgba(100, 70, 200, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      margin-bottom: 2rem;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .back-link {
+      color: #9895ad;
+      text-decoration: none;
+      font-size: 1.1rem;
+      transition: color 0.15s;
+    }
+
+    .back-link:hover { color: #a78bfa; }
+
+    h1 {
+      font-size: 2.0625rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .saved-banner {
+      background: rgba(124, 92, 252, 0.1);
+      border: 1px solid rgba(124, 92, 252, 0.25);
+      border-radius: 10px;
+      padding: 0.75rem 1.25rem;
+      margin-bottom: 1.5rem;
+      color: #c4b5fd;
+      font-size: 0.95rem;
+      font-weight: 500;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section {
+      background: #343438;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.25rem;
+    }
+
+    .section p {
+      font-size: 0.875rem;
+      color: #9895ad;
+      margin-bottom: 1rem;
+    }
+
+    .field-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .field-group.single {
+      grid-template-columns: 1fr;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+
+    label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #c4c0d8;
+    }
+
+    textarea {
+      background: #2b2b30;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: #e0dee8;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 0.85rem;
+      padding: 0.75rem;
+      resize: vertical;
+      min-height: 100px;
+      line-height: 1.5;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: rgba(124, 92, 252, 0.4);
+    }
+
+    textarea.small {
+      min-height: 70px;
+    }
+
+    input[type="text"] {
+      background: #2b2b30;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: #e0dee8;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 0.85rem;
+      padding: 0.6rem 0.75rem;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: rgba(124, 92, 252, 0.4);
+    }
+
+    .actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7c5cfc 0%, #9b6dff 100%);
+      color: #fff;
+      border: none;
+      padding: 0.65rem 1.75rem;
+      border-radius: 24px;
+      font-size: 1.03rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s;
+      box-shadow: 0 0 24px rgba(124, 92, 252, 0.3);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 36px rgba(124, 92, 252, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #a09cb5;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.55rem 1.25rem;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #d0cee0;
+    }
+
+    ::selection {
+      background: rgba(124, 92, 252, 0.3);
+      color: #fff;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="back-link">&larr;</a>
+    <h1>Settings</h1>
+  </header>
+
+  {% if saved %}
+    <div class="saved-banner">Settings saved. Refresh jobs to see the changes.</div>
+  {% endif %}
+
+  <form action="/settings/save" method="post">
+
+    <div class="section">
+      <h2>Company Sources</h2>
+      <p>Companies to monitor via Greenhouse and Ashby career pages. One per line as <code style="color:#c4b5fd;">slug, Display Name</code>.</p>
+      <div class="field-group">
+        <div class="field">
+          <label for="greenhouse">Greenhouse</label>
+          <textarea id="greenhouse" name="greenhouse_companies" class="small">{% for c in config.greenhouse_companies %}{{ c.slug }}, {{ c.name }}
+{% endfor %}</textarea>
+        </div>
+        <div class="field">
+          <label for="ashby">Ashby</label>
+          <textarea id="ashby" name="ashby_companies" class="small">{% for c in config.ashby_companies %}{{ c.slug }}, {{ c.name }}
+{% endfor %}</textarea>
+        </div>
+        <div class="field">
+          <label for="lever">Lever</label>
+          <textarea id="lever" name="lever_companies" class="small">{% for c in config.get('lever_companies', []) %}{{ c.slug }}, {{ c.name }}
+{% endfor %}</textarea>
+        </div>
+      </div>
+      <p style="margin-bottom: 0; margin-top: -0.5rem; font-size: 0.8rem; color: #7a7690;">Remote boards (Remotive, We Work Remotely, Working Nomads) are always included.</p>
+    </div>
+
+    <div class="section">
+      <h2>Manual Check Companies</h2>
+      <p>Companies without a standard ATS. One per line as <code style="color:#c4b5fd;">Name, https://careers-url</code>. These appear on the Tracker page.</p>
+      <div class="field-group single">
+        <div class="field">
+          <textarea name="manual_companies" style="min-height: 120px;">{% for c in config.get('manual_companies', []) %}{{ c.name }}, {{ c.url }}
+{% endfor %}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Include Keywords</h2>
+      <p>Jobs must match at least one keyword from any group. One term per line.</p>
+      <div class="field-group">
+        <div class="field">
+          <label for="kw_support_ops">Support Ops</label>
+          <textarea id="kw_support_ops" name="keywords_support_ops">{{ config.keywords.get('support_ops', []) | join('\n') }}</textarea>
+        </div>
+        <div class="field">
+          <label for="kw_support_roles">Support Roles</label>
+          <textarea id="kw_support_roles" name="keywords_support_roles">{{ config.keywords.get('support_roles', []) | join('\n') }}</textarea>
+        </div>
+        <div class="field">
+          <label for="kw_cx_roles">CX Roles</label>
+          <textarea id="kw_cx_roles" name="keywords_cx_roles">{{ config.keywords.get('cx_roles', []) | join('\n') }}</textarea>
+        </div>
+        <div class="field">
+          <label for="kw_implementation">Implementation / Onboarding</label>
+          <textarea id="kw_implementation" name="keywords_implementation">{{ config.keywords.get('implementation', []) | join('\n') }}</textarea>
+        </div>
+        <div class="field">
+          <label for="kw_cx_tools">CX Tools</label>
+          <textarea id="kw_cx_tools" name="keywords_cx_tools">{{ config.keywords.get('cx_tools', []) | join('\n') }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Remote Filter</h2>
+      <p>Only show jobs that mention remote work in the title or location.</p>
+      <div class="field-group">
+        <div class="field">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" name="remote_only" value="1" {{ 'checked' if config.remote_only else '' }}
+              style="width: 18px; height: 18px; accent-color: #7c5cfc; cursor: pointer;">
+            Remote only
+          </label>
+        </div>
+        <div class="field">
+          <label for="remote_terms">Remote indicators (one per line)</label>
+          <textarea id="remote_terms" name="remote_terms" class="small">{{ config.get('remote_terms', ['remote']) | join('\n') }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Exclude Titles</h2>
+      <p>Reject jobs containing these terms, unless the title also contains an exception term.</p>
+      <div class="field-group">
+        <div class="field">
+          <label for="exc_terms">Exclusion Terms</label>
+          <textarea id="exc_terms" name="exclusion_terms">{{ config.exclusions.terms | join('\n') }}</textarea>
+        </div>
+        <div class="field">
+          <label for="exc_except">Exceptions (keep if title also contains)</label>
+          <textarea id="exc_except" name="exclusion_exceptions" class="small">{{ config.exclusions.exceptions | join('\n') }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Language Filter</h2>
+      <p>Reject titles containing these non-English markers. One per line.</p>
+      <div class="field-group single">
+        <div class="field">
+          <textarea name="non_english_markers" style="min-height: 120px;">{{ config.non_english_markers | join('\n') }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn-primary">Save Settings</button>
+      <a href="/" class="btn-secondary">Cancel</a>
+    </div>
+
+  </form>
+</body>
+</html>

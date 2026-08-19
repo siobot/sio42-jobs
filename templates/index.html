@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Monitor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #2b2b30;
+      color: #d0cee0;
+      line-height: 1.6;
+      padding: 2.5rem;
+      max-width: 1160px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse, rgba(100, 70, 200, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      font-size: 2.0625rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.375rem;
+      letter-spacing: -0.02em;
+    }
+
+    .meta {
+      color: #9895ad;
+      font-size: 0.9625rem;
+    }
+
+    /* Two-column layout */
+    .page-layout {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+      position: relative;
+      z-index: 1;
+    }
+
+    .main-col {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 2.5rem;
+      z-index: 2;
+    }
+
+    @media (max-width: 860px) {
+      .page-layout {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        position: static;
+        order: -1;
+      }
+    }
+
+    .actions {
+      margin-bottom: 1.75rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7c5cfc 0%, #9b6dff 100%);
+      color: #fff;
+      border: none;
+      padding: 0.65rem 1.75rem;
+      border-radius: 24px;
+      font-size: 1.03rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s;
+      box-shadow: 0 0 24px rgba(124, 92, 252, 0.3);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 36px rgba(124, 92, 252, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 0 16px rgba(124, 92, 252, 0.2);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #a09cb5;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.55rem 1.25rem;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #d0cee0;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .job-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      flex-shrink: 0;
+    }
+
+    .btn-dismiss {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #7a7690;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: none;
+      text-decoration: none;
+      display: inline-block;
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    .btn-dismiss:hover {
+      background: rgba(255, 80, 80, 0.1);
+      border-color: rgba(255, 80, 80, 0.25);
+      color: #f87171;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn-applied {
+      background: none;
+      border: 1px solid rgba(110, 231, 183, 0.15);
+      color: #6ee7b7;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: none;
+      text-decoration: none;
+      display: inline-block;
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    .btn-applied:hover {
+      background: rgba(110, 231, 183, 0.1);
+      border-color: rgba(110, 231, 183, 0.3);
+      color: #a7f3d0;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn-interested {
+      background: none;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      color: #fbbf24;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: none;
+      text-decoration: none;
+      display: inline-block;
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    .btn-interested:hover {
+      background: rgba(251, 191, 36, 0.1);
+      border-color: rgba(251, 191, 36, 0.35);
+      color: #fcd34d;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn-interested.active {
+      background: rgba(251, 191, 36, 0.12);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .btn-restore {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #7a7690;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: none;
+      text-decoration: none;
+      display: inline-block;
+      position: relative;
+      z-index: 10;
+    }
+
+    .btn-restore:hover {
+      background: rgba(124, 92, 252, 0.1);
+      border-color: rgba(124, 92, 252, 0.25);
+      color: #a78bfa;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .loading {
+      display: none;
+      color: #9895ad;
+      font-size: 0.9625rem;
+    }
+
+    .summary {
+      background: #343438;
+      border-radius: 16px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      display: flex;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-value {
+      font-size: 1.7875rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: #9895ad;
+      font-weight: 500;
+    }
+
+    .stat-value.new { color: #a78bfa; }
+
+    .errors {
+      background: rgba(255, 59, 48, 0.05);
+      border: 1px solid rgba(255, 59, 48, 0.12);
+      border-radius: 14px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.75rem;
+      font-size: 0.9rem;
+      color: #f87171;
+    }
+
+    .errors summary {
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .section-title {
+      font-size: 1.2375rem;
+      font-weight: 600;
+      color: #fff;
+      margin: 2rem 0 1rem;
+    }
+
+    .job-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+
+    .job-card {
+      background: #343438;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      transition: all 0.25s;
+    }
+
+    .job-card:hover {
+      background: #3a3a3f;
+      border-color: rgba(124, 92, 252, 0.25);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .job-card.is-new {
+      border-left: 2px solid #a78bfa;
+      box-shadow: inset 4px 0 16px -4px rgba(167, 139, 250, 0.08);
+    }
+
+    .job-card.is-new:hover {
+      box-shadow: inset 4px 0 16px -4px rgba(167, 139, 250, 0.12),
+                  0 4px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .job-card.is-dismissed {
+      opacity: 0.6;
+    }
+
+    .job-card.is-dismissed:hover {
+      opacity: 0.85;
+    }
+
+    .job-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .job-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .job-title a {
+      color: #eae8f0;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .job-title a:hover { color: #a78bfa; }
+
+    .job-company {
+      color: #c4c0d8;
+      font-size: 1.03rem;
+    }
+
+    .job-meta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #a09cb5;
+    }
+
+    .job-keywords {
+      display: flex;
+      gap: 0.375rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.756rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-new {
+      background: rgba(167, 139, 250, 0.12);
+      color: #a78bfa;
+    }
+
+    .badge-source {
+      background: rgba(255, 255, 255, 0.06);
+      color: #a09cb5;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .badge-keyword {
+      background: rgba(124, 92, 252, 0.08);
+      color: #9280d4;
+      border: 1px solid rgba(124, 92, 252, 0.15);
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .job-note {
+      margin-top: 0.6rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .job-note summary {
+      font-size: 0.78rem;
+      color: #9895ad;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .job-note summary:hover { color: #c4b5fd; }
+
+    .job-note[open] summary { color: #c4b5fd; }
+
+    .note-form {
+      margin-top: 0.5rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+
+    .note-form textarea {
+      flex: 1;
+      background: #2b2b30;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #e0dee8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.82rem;
+      padding: 0.4rem 0.6rem;
+      resize: vertical;
+      min-height: 50px;
+      max-height: 120px;
+      line-height: 1.4;
+    }
+
+    .note-form textarea:focus {
+      outline: none;
+      border-color: rgba(124, 92, 252, 0.4);
+    }
+
+    .note-form button {
+      background: rgba(124, 92, 252, 0.1);
+      border: 1px solid rgba(124, 92, 252, 0.25);
+      color: #c4b5fd;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .note-form button:hover {
+      background: rgba(124, 92, 252, 0.2);
+      border-color: rgba(124, 92, 252, 0.4);
+    }
+
+    .note-display {
+      margin-top: 0.4rem;
+      font-size: 0.82rem;
+      color: #c4c0d8;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: #9895ad;
+    }
+
+    .empty p { margin-top: 0.5rem; }
+
+    /* Sidebar: Manual checks */
+    .sidebar-card {
+      background: #343438;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 1rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .sidebar-card h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.75rem;
+    }
+
+    .check-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.65rem;
+      background: #2b2b30;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      gap: 0.5rem;
+      transition: border-color 0.2s;
+    }
+
+    .check-row:hover {
+      border-color: rgba(124, 92, 252, 0.2);
+    }
+
+    .check-left {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .check-left a {
+      color: #eae8f0;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: color 0.15s;
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .check-left a:hover { color: #a78bfa; }
+
+    .check-ago {
+      font-size: 0.7rem;
+      color: #7a7690;
+    }
+
+    .check-ago.recent { color: #6ee7b7; }
+    .check-ago.stale { color: #fbbf24; }
+
+    .btn-check {
+      background: rgba(124, 92, 252, 0.08);
+      border: 1px solid rgba(124, 92, 252, 0.2);
+      color: #b4a0f0;
+      padding: 0.15rem 0.5rem;
+      border-radius: 5px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .check-row a {
+      position: relative;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .btn-check:hover {
+      background: rgba(124, 92, 252, 0.18);
+      border-color: rgba(124, 92, 252, 0.35);
+      color: #d4c4ff;
+    }
+
+    .btn-check.done {
+      background: rgba(110, 231, 183, 0.06);
+      border-color: rgba(110, 231, 183, 0.15);
+      color: #6ee7b7;
+    }
+
+    .sidebar-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar-links a {
+      color: #9895ad;
+      text-decoration: none;
+      font-size: 0.82rem;
+      transition: color 0.15s;
+    }
+
+    .sidebar-links a:hover { color: #a78bfa; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
+
+    .add-job-form {
+      background: #343438;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .add-job-form h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.25rem;
+    }
+
+    .add-job-form > p {
+      font-size: 0.85rem;
+      color: #9895ad;
+      margin-bottom: 1rem;
+    }
+
+    .add-job-fields {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .add-job-fields .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .add-job-fields label {
+      font-size: 0.78rem;
+      color: #9895ad;
+      font-weight: 500;
+    }
+
+    .add-job-fields input, .add-job-fields select {
+      background: #2b2b30;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #e0dee8;
+      font-size: 0.85rem;
+      padding: 0.45rem 0.6rem;
+    }
+
+    .add-job-fields input:focus, .add-job-fields select:focus {
+      outline: none;
+      border-color: rgba(124, 92, 252, 0.4);
+    }
+
+    .btn-add-job {
+      background: linear-gradient(135deg, #7c5cfc 0%, #9b6dff 100%);
+      color: #fff;
+      border: none;
+      padding: 0.45rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-add-job:hover {
+      box-shadow: 0 0 20px rgba(124, 92, 252, 0.35);
+    }
+
+    ::selection {
+      background: rgba(124, 92, 252, 0.3);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>Job Monitor</h1>
+      <div style="display: flex; gap: 0.5rem;">
+        <a href="/settings" class="btn-secondary" style="font-size: 0.85rem; padding: 0.4rem 1rem;">Settings</a>
+      </div>
+    </div>
+    <p class="meta">
+      {% if last_run %}
+        Last checked: {{ last_run[:19] | replace("T", " ") }} UTC
+        · {{ seen_count }} jobs tracked
+        {% if dismissed_count %} · {{ dismissed_count }} dismissed{% endif %}
+      {% else %}
+        No runs yet
+      {% endif %}
+    </p>
+  </header>
+
+  <div class="page-layout">
+    <!-- Main column: job results -->
+    <div class="main-col">
+      <div class="actions">
+        <form action="/refresh" method="post" onsubmit="showLoading()">
+          <button type="submit" id="refresh-btn" class="btn-primary">Refresh Jobs</button>
+        </form>
+        {% if interested_count %}
+          <a href="/?interested={{ '0' if show_interested else '1' }}" class="btn-secondary">
+            {{ 'Hide' if show_interested else 'Show' }} Interested ({{ interested_count }})
+          </a>
+        {% endif %}
+        {% if applied_count %}
+          <a href="/?applied={{ '0' if show_applied else '1' }}" class="btn-secondary">
+            {{ 'Hide' if show_applied else 'Show' }} Applied ({{ applied_count }})
+          </a>
+        {% endif %}
+        {% if dismissed_count %}
+          <a href="/?dismissed={{ '0' if show_dismissed else '1' }}" class="btn-secondary">
+            {{ 'Hide' if show_dismissed else 'Show' }} Dismissed ({{ dismissed_count }})
+          </a>
+        {% endif %}
+        <a href="/?add=1" class="btn-secondary">+ Add Job</a>
+        <span class="loading" id="loading">Fetching jobs…</span>
+      </div>
+
+      {% if fetched %}
+        <div class="summary">
+          <div class="stat">
+            <span class="stat-value">{{ total_fetched }}</span>
+            <span class="stat-label">Fetched</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">{{ jobs | length }}</span>
+            <span class="stat-label">Match Filters</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value new">{{ new_jobs | length }}</span>
+            <span class="stat-label">New</span>
+          </div>
+        </div>
+
+        {% if errors %}
+          <details class="errors">
+            <summary>{{ errors | length }} source error(s)</summary>
+            <ul style="margin-top: 0.5rem; padding-left: 1.25rem;">
+              {% for err in errors %}
+                <li>{{ err }}</li>
+              {% endfor %}
+            </ul>
+          </details>
+        {% endif %}
+
+        {% set new_ids = new_jobs | map(attribute='id') | list %}
+
+        {% if new_jobs %}
+          <h2 class="section-title">New Jobs</h2>
+          <div class="job-list">
+            {% for job in new_jobs %}
+              <div class="job-card is-new">
+                <div class="job-header">
+                  <div>
+                    <div class="job-title">
+                      <a href="{{ job.url }}" target="_blank" rel="noopener">{{ job.title }}</a>
+                      <span class="badge badge-new">New</span>
+                    </div>
+                    <div class="job-company">{{ job.company }}</div>
+                    <div class="job-meta">
+                      <span>{{ job.location }}</span>
+                      <span class="badge badge-source">{{ job.source }}</span>
+                      {% if job.date %}<span>{{ job.date }}</span>{% endif %}
+                    </div>
+                    {% if job.matched_keywords %}
+                      <div class="job-keywords">
+                        {% for kw in job.matched_keywords %}
+                          <span class="badge badge-keyword">{{ kw }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="job-actions">
+                    {% if job.is_interested %}
+                      <a href="/uninterest?job_id={{ job.id | urlencode }}"
+                         class="btn-interested active" title="Remove from interested">★ Interested</a>
+                    {% else %}
+                      <a href="/mark-interested?job_id={{ job.id | urlencode }}&title={{ job.title | urlencode }}&company={{ job.company | urlencode }}&url={{ job.url | urlencode }}&keywords={{ job.matched_keywords | join(', ') | urlencode }}"
+                         class="btn-interested" title="Save for later">Interested</a>
+                    {% endif %}
+                    <a href="/mark-applied?job_id={{ job.id | urlencode }}&title={{ job.title | urlencode }}&company={{ job.company | urlencode }}&url={{ job.url | urlencode }}&keywords={{ job.matched_keywords | join(', ') | urlencode }}"
+                       class="btn-applied" title="Mark as applied">Applied</a>
+                    <a href="/dismiss?job_id={{ job.id | urlencode }}&title={{ job.title | urlencode }}&company={{ job.company | urlencode }}&keywords={{ job.matched_keywords | join(', ') | urlencode }}"
+                       class="btn-dismiss" title="Hide this job from future results">Dismiss</a>
+                  </div>
+                </div>
+                <details class="job-note" {% if notes.get(job.id) %}open{% endif %}>
+                  <summary>{% if notes.get(job.id) %}Note{% else %}Add note{% endif %}</summary>
+                  <form action="/save-note" method="post" class="note-form">
+                    <input type="hidden" name="job_id" value="{{ job.id }}">
+                    <textarea name="note" placeholder="Add a note...">{{ notes.get(job.id, '') }}</textarea>
+                    <button type="submit">Save</button>
+                  </form>
+                </details>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% set seen_jobs = jobs | rejectattr('id', 'in', new_ids) | list %}
+        {% if seen_jobs %}
+          <h2 class="section-title">Previously Seen ({{ seen_jobs | length }})</h2>
+          <div class="job-list">
+            {% for job in seen_jobs %}
+              <div class="job-card">
+                <div class="job-header">
+                  <div>
+                    <div class="job-title">
+                      <a href="{{ job.url }}" target="_blank" rel="noopener">{{ job.title }}</a>
+                    </div>
+                    <div class="job-company">{{ job.company }}</div>
+                    <div class="job-meta">
+                      <span>{{ job.location }}</span>
+                      <span class="badge badge-source">{{ job.source }}</span>
+                      {% if job.date %}<span>{{ job.date }}</span>{% endif %}
+                    </div>
+                    {% if job.matched_keywords %}
+                      <div class="job-keywords">
+                        {% for kw in job.matched_keywords %}
+                          <span class="badge badge-keyword">{{ kw }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="job-actions">
+                    {% if job.is_interested %}
+                      <a href="/uninterest?job_id={{ job.id | urlencode }}"
+                         class="btn-interested active" title="Remove from interested">★ Interested</a>
+                    {% else %}
+                      <a href="/mark-interested?job_id={{ job.id | urlencode }}&title={{ job.title | urlencode }}&company={{ job.company | urlencode }}&url={{ job.url | urlencode }}&keywords={{ job.matched_keywords | join(', ') | urlencode }}"
+                         class="btn-interested" title="Save for later">Interested</a>
+                    {% endif %}
+                    <a href="/mark-applied?job_id={{ job.id | urlencode }}&title={{ job.title | urlencode }}&company={{ job.company | urlencode }}&url={{ job.url | urlencode }}&keywords={{ job.matched_keywords | join(', ') | urlencode }}"
+                       class="btn-applied" title="Mark as applied">Applied</a>
+                    <a href="/dismiss?job_id={{ job.id | urlencode }}&title={{ job.title | urlencode }}&company={{ job.company | urlencode }}&keywords={{ job.matched_keywords | join(', ') | urlencode }}"
+                       class="btn-dismiss" title="Hide this job from future results">Dismiss</a>
+                  </div>
+                </div>
+                <details class="job-note" {% if notes.get(job.id) %}open{% endif %}>
+                  <summary>{% if notes.get(job.id) %}Note{% else %}Add note{% endif %}</summary>
+                  <form action="/save-note" method="post" class="note-form">
+                    <input type="hidden" name="job_id" value="{{ job.id }}">
+                    <textarea name="note" placeholder="Add a note...">{{ notes.get(job.id, '') }}</textarea>
+                    <button type="submit">Save</button>
+                  </form>
+                </details>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if not jobs %}
+          <div class="empty">
+            <p>No jobs matched your filters.</p>
+          </div>
+        {% endif %}
+
+      {% else %}
+
+        {% if show_interested and interested_jobs %}
+          <h2 class="section-title">Interested ({{ interested_jobs | length }})</h2>
+          <div class="job-list">
+            {% for job_id, info in interested_jobs.items() %}
+              <div class="job-card" style="border-left: 2px solid #fbbf24;">
+                <div class="job-header">
+                  <div>
+                    <div class="job-title">
+                      {% if info.url %}
+                        <a href="{{ info.url }}" target="_blank" rel="noopener">{{ info.title }}</a>
+                      {% else %}
+                        {{ info.title }}
+                      {% endif %}
+                      <span class="badge" style="background: rgba(251,191,36,0.12); color: #fbbf24;">Interested</span>
+                    </div>
+                    <div class="job-company">{{ info.company }}</div>
+                    <div class="job-meta">
+                      <span>{{ info.added_at[:10] }}</span>
+                    </div>
+                  </div>
+                  <div class="job-actions">
+                    <a href="/mark-applied?job_id={{ job_id | urlencode }}&title={{ info.title | urlencode }}&company={{ info.company | urlencode }}&url={{ info.get('url', '') | urlencode }}&keywords={{ info.get('keywords', '') | urlencode }}"
+                       class="btn-applied" title="Mark as applied">Applied</a>
+                    <a href="/uninterest?job_id={{ job_id | urlencode }}"
+                       class="btn-restore" title="Remove from interested">Remove</a>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+        {% elif show_applied and applied_jobs %}
+          <h2 class="section-title">Applied Jobs ({{ applied_jobs | length }})</h2>
+          <div class="job-list">
+            {% for job_id, info in applied_jobs.items() %}
+              <div class="job-card" style="border-left: 2px solid #6ee7b7;">
+                <div class="job-header">
+                  <div>
+                    <div class="job-title">
+                      {% if info.url %}
+                        <a href="{{ info.url }}" target="_blank" rel="noopener">{{ info.title }}</a>
+                      {% else %}
+                        {{ info.title }}
+                      {% endif %}
+                      <span class="badge" style="background: rgba(110,231,183,0.12); color: #6ee7b7;">Applied</span>
+                    </div>
+                    <div class="job-company">{{ info.company }}</div>
+                    <div class="job-meta">
+                      <span>{{ info.applied_at[:10] }}</span>
+                    </div>
+                    {% if info.keywords %}
+                      <div class="job-keywords">
+                        {% for kw in info.keywords.split(', ') %}
+                          <span class="badge badge-keyword">{{ kw }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <a href="/unapply?job_id={{ job_id | urlencode }}"
+                     class="btn-restore" title="Remove from applied">Remove</a>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+        {% elif show_dismissed and dismissed_jobs %}
+          <h2 class="section-title">Dismissed Jobs ({{ dismissed_jobs | length }})</h2>
+          <div class="job-list">
+            {% for job_id, info in dismissed_jobs.items() %}
+              <div class="job-card is-dismissed">
+                <div class="job-header">
+                  <div>
+                    <div class="job-title">{{ info.title }}</div>
+                    <div class="job-company">{{ info.company }}</div>
+                    {% if info.keywords %}
+                      <div class="job-keywords">
+                        {% for kw in info.keywords.split(', ') %}
+                          <span class="badge badge-keyword">{{ kw }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <a href="/undismiss?job_id={{ job_id | urlencode }}"
+                     class="btn-restore" title="Restore this job to results">Restore</a>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+        {% elif show_add %}
+          <div class="add-job-form">
+            <h2>Add a Job</h2>
+            <p>Manually add a job you found outside the monitor.</p>
+            <form action="/add-job" method="post">
+              <div class="add-job-fields">
+                <div class="field">
+                  <label>Job Title</label>
+                  <input type="text" name="title" placeholder="e.g. Chief Chaos Coordinator" required>
+                </div>
+                <div class="field">
+                  <label>Company</label>
+                  <input type="text" name="company" placeholder="e.g. Bridge In" required>
+                </div>
+                <div class="field">
+                  <label>URL (optional)</label>
+                  <input type="text" name="url" placeholder="https://...">
+                </div>
+                <div class="field">
+                  <label>Save as</label>
+                  <select name="list_type">
+                    <option value="interested">Interested</option>
+                    <option value="applied">Applied</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn-add-job">Add</button>
+              </div>
+            </form>
+          </div>
+
+        {% elif not fetched %}
+          <div class="empty">
+            <p style="font-size: 2rem; opacity: 0.3;">📋</p>
+            <p>Click <strong style="color: #eae8f0;">Refresh Jobs</strong> to fetch the latest postings.</p>
+          </div>
+        {% endif %}
+
+      {% endif %}
+    </div>
+
+    <!-- Sidebar: manual checks -->
+    <div class="sidebar">
+      <div class="sidebar-card">
+        <h2>Manual Checks</h2>
+        {% if manual_companies %}
+          <div class="check-list">
+            {% for company in manual_companies %}
+              <div class="check-row">
+                <div class="check-left">
+                  <a href="{{ company.url }}" target="_blank" rel="noopener" title="{{ company.url }}">{{ company.name }}</a>
+                  {% if company.days_ago is not none %}
+                    {% if company.days_ago == 0 and company.hours_ago == 0 %}
+                      <span class="check-ago recent">{{ company.mins_ago }}m ago</span>
+                    {% elif company.days_ago == 0 %}
+                      <span class="check-ago recent">{{ company.hours_ago }}h ago</span>
+                    {% elif company.days_ago <= 3 %}
+                      <span class="check-ago recent">{{ company.days_ago }}d ago</span>
+                    {% elif company.days_ago <= 7 %}
+                      <span class="check-ago stale">{{ company.days_ago }}d ago</span>
+                    {% else %}
+                      <span class="check-ago stale">{{ company.days_ago }}d ago</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="check-ago">not checked</span>
+                  {% endif %}
+                </div>
+                <a href="/tracker/check?name={{ company.name | urlencode }}"
+                   class="btn-check{% if company.days_ago is not none and company.days_ago <= 3 %} done{% endif %}"
+                   title="Mark as checked"
+                   >✓</a>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showLoading() {
+      document.getElementById('refresh-btn').disabled = true;
+      document.getElementById('refresh-btn').textContent = 'Fetching…';
+      document.getElementById('loading').style.display = 'inline';
+    }
+
+  </script>
+</body>
+</html>

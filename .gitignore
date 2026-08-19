@@ -1,0 +1,12 @@
+jobs_state.json
+new_jobs.txt
+dismissed.json
+applied.json
+interested.json
+notes.json
+tracker.json
+last_results.json
+.env
+__pycache__/
+*.pyc
+cron.log
