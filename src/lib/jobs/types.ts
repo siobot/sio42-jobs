@@ -78,6 +78,14 @@ export const DEFAULT_GREENHOUSE = [
   { slug: "userflow", name: "Userflow" },
   { slug: "remotecom", name: "Remote.com" },
   { slug: "calendly", name: "Calendly" },
+  { slug: "postman", name: "Postman" },
+  { slug: "planetscale", name: "PlanetScale" },
+  { slug: "typeform", name: "Typeform" },
+  { slug: "bitwarden", name: "Bitwarden" },
+  { slug: "klaviyo", name: "Klaviyo" },
+  { slug: "braze", name: "Braze" },
+  { slug: "datadog", name: "Datadog" },
+  { slug: "pagerduty", name: "PagerDuty" },
 ];
 export const DEFAULT_ASHBY = [
   { slug: "linear", name: "Linear" }, { slug: "buffer", name: "Buffer" },
@@ -89,10 +97,18 @@ export const DEFAULT_ASHBY = [
   { slug: "attio", name: "Attio" },
   { slug: "duvo", name: "Duvo" },
   { slug: "wundergraph", name: "WunderGraph" },
+  { slug: "pleo", name: "Pleo" },
+  { slug: "iterable", name: "Iterable" },
+  { slug: "float", name: "Float" },
+  { slug: "1password", name: "1Password" },
+  { slug: "clickup", name: "ClickUp" },
+  { slug: "snyk", name: "Snyk" },
+  { slug: "spendesk", name: "Spendesk" },
 ];
 export const DEFAULT_LEVER = [
   { slug: "appfollow", name: "AppFollow" }, { slug: "whereby", name: "Whereby" },
   { slug: "15five", name: "15Five" }, { slug: "articulate", name: "Articulate" },
+  { slug: "activecampaign", name: "ActiveCampaign" },
 ];
 export const DEFAULT_MANUAL = [
   { name: "Automattic", url: "https://automattic.com/work-with-us/" },
@@ -108,4 +124,10 @@ export const DEFAULT_MANUAL = [
   { name: "Xactly", url: "https://careers.xactlycorp.com/jobs" },
   { name: "Conveyor", url: "https://www.conveyor.com/company/careers" },
   { name: "Anomalo", url: "https://www.anomalo.com/careers/" },
+  { name: "Fly.io", url: "https://fly.io/jobs/" },
+  { name: "Neon", url: "https://neon.com/careers" },
+  { name: "beehiiv", url: "https://www.beehiiv.com/careers" },
+  { name: "Harvest", url: "https://www.getharvest.com/careers" },
+  { name: "Toggl", url: "https://toggl.com/jobs/" },
+  { name: "Rippling", url: "https://www.rippling.com/careers" },
 ];
