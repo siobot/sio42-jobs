@@ -104,6 +104,7 @@ export const DEFAULT_ASHBY = [
   { slug: "clickup", name: "ClickUp" },
   { slug: "snyk", name: "Snyk" },
   { slug: "spendesk", name: "Spendesk" },
+  { slug: "anomalo", name: "Anomalo" },
 ];
 export const DEFAULT_LEVER = [
   { slug: "appfollow", name: "AppFollow" }, { slug: "whereby", name: "Whereby" },
@@ -112,7 +113,6 @@ export const DEFAULT_LEVER = [
 ];
 export const DEFAULT_MANUAL = [
   { name: "Automattic", url: "https://automattic.com/work-with-us/" },
-  { name: "Doist", url: "https://doist.com/careers" },
   { name: "Basecamp", url: "https://37signals.com/jobs" },
   { name: "Tuple", url: "https://tuple.app/jobs" },
   { name: "Groove", url: "https://www.groovehq.com/careers" },
@@ -123,9 +123,8 @@ export const DEFAULT_MANUAL = [
   { name: "SafetyWing", url: "https://safetywing.pinpointhq.com/" },
   { name: "Xactly", url: "https://careers.xactlycorp.com/jobs" },
   { name: "Conveyor", url: "https://www.conveyor.com/company/careers" },
-  { name: "Anomalo", url: "https://www.anomalo.com/careers/" },
   { name: "Fly.io", url: "https://fly.io/jobs/" },
-  { name: "Neon", url: "https://neon.com/careers" },
+  { name: "Neon", url: "https://neon.tech/careers" },
   { name: "beehiiv", url: "https://www.beehiiv.com/careers" },
   { name: "Harvest", url: "https://www.getharvest.com/careers" },
   { name: "Toggl", url: "https://toggl.com/jobs/" },
