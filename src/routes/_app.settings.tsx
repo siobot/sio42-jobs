@@ -59,8 +59,8 @@ const TYPE_LABELS: Record<string, string> = {
   weworkremotely: "We Work Remotely",
   workingnomads: "Working Nomads",
 };
-const ATS_TYPES = ["greenhouse", "ashby", "lever"] as const;
-const AGGREGATOR_TYPES = ["doist", "remotive", "weworkremotely", "workingnomads"] as const;
+const ATS_TYPES = ["greenhouse", "ashby", "lever", "doist"] as const;
+const AGGREGATOR_TYPES = ["remotive", "weworkremotely", "workingnomads"] as const;
 type SourceRow = {
   id: string;
   type: string;
@@ -79,7 +79,7 @@ function SourcesTab() {
   const sources = useQuery({
     queryKey: ["sources"],
     queryFn: async () => {
-      const { data } = await supabase.from("sources").select("*").order("type").order("name");
+      const { data } = await supabase.from("sources").select("*").order("name");
       return (data ?? []) as SourceRow[];
     },
   });
