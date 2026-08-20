@@ -45,7 +45,7 @@ export function JobActions({ jobId, status }: JobActionsProps) {
     <div className="flex flex-wrap gap-1.5">
       {btn("interested", "Interested")}
       {btn("applied", "Applied")}
-      {btn("dismissed", "Dismiss")}
+      {btn("dismissed", "Not Interested")}
       <Button
         size="sm"
         variant="ghost"
