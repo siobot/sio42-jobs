@@ -15,7 +15,7 @@ type Status = "new" | "interested" | "applied" | "dismissed" | "archived";
 
 
 export const Route = createFileRoute("/_app/")({
-  head: () => ({ meta: [{ title: "Dashboard — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Jobs Feed — Job Monitor" }] }),
   component: Dashboard,
 });
 
@@ -78,7 +78,7 @@ function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <h1 className="text-2xl font-semibold">Jobs Feed</h1>
           <p className="text-sm text-muted-foreground">Last scan: {lastRunRel}</p>
         </div>
         <Button onClick={() => scanM.mutate()} disabled={scanM.isPending}>

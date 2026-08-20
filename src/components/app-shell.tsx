@@ -7,7 +7,7 @@ import { ensureServiceWorker, updateAppBadge } from "@/lib/push/register";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/", label: "Jobs Feed", icon: LayoutDashboard },
   { to: "/applications", label: "Applications", icon: Send },
   { to: "/checklist", label: "Other Career Pages", icon: ListChecks },
   { to: "/history", label: "Scan history", icon: History },
