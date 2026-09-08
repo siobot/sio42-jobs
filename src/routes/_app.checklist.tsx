@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { addManualCompany, deleteManualCompany, markCompanyChecked, updateManualCompany } from "@/lib/jobs/api.functions";
+import { deleteManualCompany, markCompanyChecked, updateManualCompany } from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ExternalLink, Pencil, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/checklist")({
   head: () => ({ meta: [{ title: "Other Career Pages — Job Monitor" }] }),
@@ -29,7 +29,6 @@ export const Route = createFileRoute("/_app/checklist")({
 function ChecklistPage() {
   const qc = useQueryClient();
   const mark = useServerFn(markCompanyChecked);
-  const add = useServerFn(addManualCompany);
   const del = useServerFn(deleteManualCompany);
   const update = useServerFn(updateManualCompany);
 
@@ -47,11 +46,6 @@ function ChecklistPage() {
     mutationFn: (id: string) => mark({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
   });
-  const addM = useMutation({
-    mutationFn: (v: { name: string; url: string }) => add({ data: v }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["manual-companies"] }); setName(""); setUrl(""); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Add failed"),
-  });
   const delM = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
@@ -62,8 +56,6 @@ function ChecklistPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   return (
@@ -71,20 +63,11 @@ function ChecklistPage() {
       <div>
         <h1 className="text-2xl font-semibold">Other Career Pages</h1>
         <p className="text-sm text-muted-foreground">Click a company name to open their careers page — the timestamp updates automatically.</p>
+        <p className="text-sm text-muted-foreground">
+          Add new companies from <a href="/settings" className="underline">Settings → ATS sources</a> — paste
+          their careers URL and it lands here automatically if it isn't on a supported ATS.
+        </p>
       </div>
-
-      <Card className="p-4">
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => { e.preventDefault(); if (name && url) addM.mutate({ name, url }); }}
-        >
-          <Input placeholder="Company name" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input placeholder="https://example.com/careers" value={url} onChange={(e) => setUrl(e.target.value)} />
-          <Button type="submit" disabled={!name || !url || addM.isPending}>
-            <Plus className="h-4 w-4 mr-1" /> Add
-          </Button>
-        </form>
-      </Card>
 
       <Card className="divide-y divide-border">
         {(list.data ?? []).map((c) => (

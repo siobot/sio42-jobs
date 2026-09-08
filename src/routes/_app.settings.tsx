@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  addSource, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
+  detectAndAddCompany, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
   getSchedule, saveSchedule, savePushSubscription, deletePushSubscription, hasPushSubscription,
 } from "@/lib/jobs/api.functions";
 import { VAPID_PUBLIC_KEY } from "@/lib/push/config";
@@ -71,7 +71,7 @@ type SourceRow = {
 
 function SourcesTab() {
   const qc = useQueryClient();
-  const add = useServerFn(addSource);
+  const detect = useServerFn(detectAndAddCompany);
   const tog = useServerFn(toggleSource);
   const del = useServerFn(deleteSource);
   const restore = useServerFn(restoreDefaults);
@@ -83,9 +83,17 @@ function SourcesTab() {
       return (data ?? []) as SourceRow[];
     },
   });
-  const addM = useMutation({
-    mutationFn: (v: { type: "greenhouse" | "ashby" | "lever"; slug: string; name: string }) => add({ data: v }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["sources"] }); setSlug(""); setName(""); },
+  const detectM = useMutation({
+    mutationFn: (v: { url: string; name?: string }) => detect({ data: v }),
+    onSuccess: (r) => {
+      if (r.status === "needs_name") { setNeedsNameFor(url); return; }
+      qc.invalidateQueries({ queryKey: ["sources"] });
+      qc.invalidateQueries({ queryKey: ["manual-companies"] });
+      setUrl(""); setNeedsNameFor(null); setManualName("");
+      if (r.status === "added_ats") toast.success(`Added ${r.name} as a ${TYPE_LABELS[r.type] ?? r.type} source`);
+      else if (r.status === "added_manual") toast.success(`${r.name} isn't on a supported ATS — added to Other Career Pages`);
+      else toast.info(`${r.name} is already on your list`);
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Add failed"),
   });
   const togM = useMutation({
@@ -109,9 +117,9 @@ function SourcesTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Restore failed"),
   });
 
-  const [type, setType] = useState<"greenhouse" | "ashby" | "lever">("greenhouse");
-  const [slug, setSlug] = useState("");
-  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [needsNameFor, setNeedsNameFor] = useState<string | null>(null);
+  const [manualName, setManualName] = useState("");
 
   const all = sources.data ?? [];
   const ats = all.filter((s) => (ATS_TYPES as readonly string[]).includes(s.type));
@@ -138,25 +146,55 @@ function SourcesTab() {
   return (
     <div className="space-y-4 mt-4">
       <Card className="p-4 space-y-3">
-        <div className="text-sm font-medium">Add an ATS board</div>
-        <form
-          className="grid grid-cols-1 sm:grid-cols-[160px_1fr_1fr_auto] gap-2"
-          onSubmit={(e) => { e.preventDefault(); if (slug && name) addM.mutate({ type, slug, name }); }}
-        >
-          <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="greenhouse">Greenhouse</SelectItem>
-              <SelectItem value="ashby">Ashby</SelectItem>
-              <SelectItem value="lever">Lever</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input placeholder="Board slug (e.g. linear)" value={slug} onChange={(e) => setSlug(e.target.value)} />
-          <Input placeholder="Display name" value={name} onChange={(e) => setName(e.target.value)} />
-          <Button type="submit" disabled={!slug || !name}><Plus className="h-4 w-4 mr-1" />Add</Button>
-        </form>
+        <div className="text-sm font-medium">Add a company</div>
+        {needsNameFor ? (
+          <form
+            className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2"
+            onSubmit={(e) => { e.preventDefault(); if (manualName) detectM.mutate({ url: needsNameFor, name: manualName }); }}
+          >
+            <Input
+              autoFocus
+              placeholder="Display name"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+            />
+            <Button type="submit" disabled={!manualName || detectM.isPending}>
+              <Plus className="h-4 w-4 mr-1" />{detectM.isPending ? "Adding…" : "Add"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setNeedsNameFor(null); setManualName(""); }}
+            >
+              Cancel
+            </Button>
+          </form>
+        ) : (
+          <form
+            className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2"
+            onSubmit={(e) => { e.preventDefault(); if (url) detectM.mutate({ url }); }}
+          >
+            <Input
+              placeholder="https://company.com/careers"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+            <Button type="submit" disabled={!url || detectM.isPending}>
+              <Plus className="h-4 w-4 mr-1" />{detectM.isPending ? "Checking…" : "Add"}
+            </Button>
+          </form>
+        )}
+        {needsNameFor && (
+          <p className="text-xs text-muted-foreground">
+            Couldn't automatically determine a name for that page — enter one to finish adding it.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
-          Remote-job aggregators (Doist, Remotive, We Work Remotely, Working Nomads) are added automatically and listed below.
+          Paste a company's careers page. We'll check if it's on Greenhouse, Ashby, or Lever and add it
+          as an ATS board here — otherwise it's added to the{" "}
+          <a href="/checklist" className="underline">Other Career Pages</a> checklist instead.
+          Remote-job aggregators (Doist, Remotive, We Work Remotely, Working Nomads) are added
+          automatically and listed below.
         </p>
       </Card>
 

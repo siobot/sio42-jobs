@@ -5,6 +5,8 @@ import {
   DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_KEYWORD_CONFIG, DEFAULT_LEVER, DEFAULT_MANUAL,
   type KeywordConfig,
 } from "./types";
+import { parseAtsFromUrl, fetchPageTitle, cleanCompanyNameFromTitle } from "./detect";
+import { fetchGreenhouse, fetchAshby, fetchLever } from "./sources";
 
 // Manual scan
 export const runScan = createServerFn({ method: "POST" })
@@ -156,6 +158,55 @@ export const deleteManualCompany = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await context.supabase.from("manual_companies").delete().eq("id", data.id).eq("user_id", context.userId);
     return { ok: true };
+  });
+
+// Detect whether a pasted careers URL is a supported ATS board; route it
+// into `sources` if so, otherwise into the manual `manual_companies` checklist.
+export const detectAndAddCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      url: z.string().url(),
+      name: z.string().min(1).max(200).optional(),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const parsed = parseAtsFromUrl(data.url);
+
+    if (parsed) {
+      try {
+        if (parsed.type === "greenhouse") await fetchGreenhouse(parsed.slug, "");
+        else if (parsed.type === "ashby") await fetchAshby(parsed.slug, "");
+        else await fetchLever(parsed.slug, "");
+
+        const name = data.name ?? cleanCompanyNameFromTitle((await fetchPageTitle(data.url)) ?? "") ?? undefined;
+        if (!name) return { status: "needs_name" as const };
+
+        const { data: existing } = await supabase.from("sources")
+          .select("id").eq("user_id", userId).eq("type", parsed.type).eq("slug", parsed.slug).maybeSingle();
+        if (existing) return { status: "already_added" as const, name, type: parsed.type as string };
+
+        const { error } = await supabase.from("sources")
+          .insert({ user_id: userId, type: parsed.type, slug: parsed.slug, name });
+        if (error) throw new Error(error.message);
+        return { status: "added_ats" as const, name, type: parsed.type as string };
+      } catch {
+        // Matched a known ATS domain but the board didn't resolve (bad/removed slug) —
+        // fall through and file it under the manual checklist instead.
+      }
+    }
+
+    const name = data.name ?? cleanCompanyNameFromTitle((await fetchPageTitle(data.url)) ?? "") ?? undefined;
+    if (!name) return { status: "needs_name" as const };
+
+    const { data: existingManual } = await supabase.from("manual_companies")
+      .select("id").eq("user_id", userId).ilike("name", name).maybeSingle();
+    if (existingManual) return { status: "already_added" as const, name, type: null };
+
+    const { error } = await supabase.from("manual_companies")
+      .insert({ user_id: userId, name, url: data.url });
+    if (error) throw new Error(error.message);
+    return { status: "added_manual" as const, name };
   });
 
 // Sources
