@@ -16,7 +16,6 @@ export const createDemoAccount = createServerFn({ method: "POST" })
       DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_LEVER, DEFAULT_MANUAL,
       DEMO_KEYWORD_CONFIG, REGION_LOCATION_EXCLUDES,
     } = await import("@/lib/jobs/types");
-    const { runScanForUser } = await import("@/lib/jobs/scan.server");
 
     const password = `Demo!${crypto.randomUUID()}`;
 
@@ -77,21 +76,11 @@ export const createDemoAccount = createServerFn({ method: "POST" })
     };
     await supabaseAdmin.from("keyword_config").upsert({ user_id: userId, config: keywordConfig });
 
-    // Run a real scan against the live ATS boards so the demo shows genuine
-    // current postings instead of fabricated ones.
-    await runScanForUser(supabaseAdmin, userId, "manual");
-
-    // Mark a couple of the freshest matches as "interested" to show the workflow.
-    const { data: freshJobs } = await supabaseAdmin
-      .from("jobs").select("id")
-      .eq("user_id", userId)
-      .order("first_seen_at", { ascending: false })
-      .limit(2);
-    if (freshJobs?.length) {
-      await supabaseAdmin.from("jobs")
-        .update({ status: "interested", status_updated_at: new Date().toISOString() })
-        .in("id", freshJobs.map((j) => j.id));
-    }
+    // Deliberately not running a live scan here: this handler runs
+    // synchronously before the client can sign in, and a scan across every
+    // seeded ATS board can take long enough to risk the hosting platform's
+    // request timeout. The client triggers the scan itself (via the
+    // existing `runScan`) right after signing in instead — see auth.tsx.
 
     // Illustrative application-pipeline examples — not tied to live postings,
     // since these exist to show off every stage (screen/interview/rejected),
