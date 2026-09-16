@@ -71,6 +71,70 @@ export const DEFAULT_KEYWORD_CONFIG: KeywordConfig = {
   ],
 };
 
+// Software-engineer-oriented keyword set for the demo account — distinct
+// from DEFAULT_KEYWORD_CONFIG, which reflects the app owner's own support/CX
+// job search and would otherwise exclude "engineer"/"developer" outright.
+export const DEMO_KEYWORD_CONFIG: KeywordConfig = {
+  keywords: {
+    software_engineer: ["software engineer", "software developer", "application engineer"],
+    frontend: ["frontend engineer", "front-end engineer", "frontend developer", "front-end developer", "ui engineer"],
+    backend: ["backend engineer", "back-end engineer", "backend developer", "back-end developer", "api engineer"],
+    fullstack: ["full stack engineer", "full-stack engineer", "fullstack engineer", "full stack developer"],
+    platform_devops: ["platform engineer", "infrastructure engineer", "devops engineer", "site reliability engineer", "sre"],
+    mobile_data: ["ios engineer", "android engineer", "mobile engineer", "data engineer", "machine learning engineer"],
+  },
+  exclusions: {
+    terms: ["intern", "internship"],
+    exceptions: [],
+  },
+  non_english_markers: DEFAULT_KEYWORD_CONFIG.non_english_markers,
+  remote_only: false,
+  remote_terms: DEFAULT_KEYWORD_CONFIG.remote_terms,
+  location_exclude: [],
+};
+
+// Region focus presets for the demo account: picking a region excludes
+// locations outside it. Substring-matched against raw job location text
+// (same mechanism as location_exclude generally), so terms stay full
+// words/phrases to avoid short-token false positives (e.g. "UK" inside
+// "Ukraine").
+const REGION_US_PLACES = [
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
+  "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa",
+  "Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan",
+  "Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada",
+  "New Hampshire","New Jersey","New Mexico","New York","North Carolina",
+  "North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island",
+  "South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+  "Virginia","Washington","West Virginia","Wisconsin","Wyoming",
+  "San Francisco","Chicago","Boston","Seattle","Austin","Denver","Atlanta",
+  "Miami","Portland","Minneapolis","United States","USA","US Remote","North America",
+];
+const REGION_UK_PLACES = [
+  "United Kingdom","England","Scotland","Wales","Northern Ireland",
+  "London","Manchester","Edinburgh","Bristol","Birmingham","Glasgow","Leeds","Belfast","Cardiff",
+];
+const REGION_EU_PLACES = [
+  "Europe","European Union","Germany","France","Spain","Italy","Netherlands","Poland","Sweden",
+  "Portugal","Ireland","Belgium","Austria","Switzerland","Denmark","Finland","Norway",
+  "Czech Republic","Romania","Hungary","Greece","Berlin","Paris","Madrid","Amsterdam",
+  "Dublin","Munich","Barcelona","Lisbon","Warsaw",
+];
+const REGION_APAC_PLACES = [
+  "Japan","Tokyo","South Korea","Korea","Singapore","Sydney","Melbourne","Australia",
+  "Hong Kong","India","Bangalore","Mumbai","New Zealand","Auckland","APAC","Asia Pacific",
+  "China","Shanghai","Beijing","Taiwan","Philippines","Manila","Vietnam","Indonesia","Jakarta",
+  "Thailand","Bangkok",
+];
+
+export const REGION_LOCATION_EXCLUDES: Record<"all" | "us" | "uk" | "eu" | "apac", string[]> = {
+  all: [],
+  us: [...REGION_UK_PLACES, ...REGION_EU_PLACES, ...REGION_APAC_PLACES],
+  uk: [...REGION_US_PLACES, ...REGION_EU_PLACES, ...REGION_APAC_PLACES],
+  eu: [...REGION_US_PLACES, ...REGION_UK_PLACES, ...REGION_APAC_PLACES],
+  apac: [...REGION_US_PLACES, ...REGION_UK_PLACES, ...REGION_EU_PLACES],
+};
+
 export const DEFAULT_GREENHOUSE = [
   { slug: "aha", name: "Aha!" },
   { slug: "bitwarden", name: "Bitwarden" },

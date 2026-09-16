@@ -2,6 +2,40 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// Regular sessions persist to localStorage as usual. Demo sessions (flagged
+// via user_metadata.is_demo in the stored session payload) go to
+// sessionStorage instead, so closing the tab drops them — the demo account
+// is reset server-side on every "Try the demo" click, not on tab close
+// (browsers don't give a reliable close signal), but this keeps a
+// reopened tab from silently resuming a previous demo session's state.
+const dualAuthStorage = {
+  getItem(key: string): string | null {
+    if (typeof window === 'undefined') return null;
+    return window.sessionStorage.getItem(key) ?? window.localStorage.getItem(key);
+  },
+  setItem(key: string, value: string): void {
+    if (typeof window === 'undefined') return;
+    let isDemo = false;
+    try {
+      isDemo = Boolean(JSON.parse(value)?.user?.user_metadata?.is_demo);
+    } catch {
+      // Not a session payload we can introspect — fall back to localStorage.
+    }
+    if (isDemo) {
+      window.sessionStorage.setItem(key, value);
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, value);
+      window.sessionStorage.removeItem(key);
+    }
+  },
+  removeItem(key: string): void {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.removeItem(key);
+    window.localStorage.removeItem(key);
+  },
+};
+
 function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)
   // Fall back to process.env for SSR (server-side rendering)
@@ -13,14 +47,14 @@ function createSupabaseClient() {
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
       ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
+    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Set them in your deployment environment.`;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
-      storage: typeof window !== 'undefined' ? localStorage : undefined,
+      storage: typeof window !== 'undefined' ? dualAuthStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
     }

@@ -193,7 +193,7 @@ function SourcesTab() {
           Paste a company's careers page. We'll check if it's on Greenhouse, Ashby, or Lever and add it
           as an ATS board here — otherwise it's added to the{" "}
           <a href="/checklist" className="underline">Other Career Pages</a> checklist instead.
-          Remote-job aggregators (Doist, Remotive, We Work Remotely, Working Nomads) are added
+          Remote-job aggregators (Remotive, We Work Remotely, Working Nomads) are added
           automatically and listed below.
         </p>
       </Card>

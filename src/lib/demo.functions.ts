@@ -1,25 +1,58 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 
-export const createDemoAccount = createServerFn({ method: "POST" }).handler(
-  async () => {
+// A single, fixed demo account shared by every visitor. Every "Try the
+// demo" click wipes it back to a clean slate and reseeds it — there's no
+// per-visitor isolation, so two people demoing at once could see each
+// other's changes, but that's an accepted tradeoff for now.
+const DEMO_EMAIL = "demo@demo.local";
+
+export const createDemoAccount = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ region: z.enum(["all", "us", "uk", "eu", "apac"]).default("all") }).parse(input))
+  .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_KEYWORD_CONFIG, DEFAULT_LEVER, DEFAULT_MANUAL } =
-      await import("@/lib/jobs/types");
+    const {
+      DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_LEVER, DEFAULT_MANUAL,
+      DEMO_KEYWORD_CONFIG, REGION_LOCATION_EXCLUDES,
+    } = await import("@/lib/jobs/types");
+    const { runScanForUser } = await import("@/lib/jobs/scan.server");
 
-    const id = crypto.randomUUID();
-    const email = `demo+${id}@demo.local`;
     const password = `Demo!${crypto.randomUUID()}`;
 
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { is_demo: true },
-    });
-    if (createErr || !created.user) {
-      throw new Error(createErr?.message ?? "Failed to create demo account");
+    // Find the fixed demo user (via its auto-created profile row) or create it.
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles").select("id").eq("email", DEMO_EMAIL).maybeSingle();
+
+    let userId: string;
+    if (existingProfile) {
+      userId = existingProfile.id as string;
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+      if (updateErr) throw new Error(updateErr.message);
+    } else {
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: DEMO_EMAIL,
+        password,
+        email_confirm: true,
+        user_metadata: { is_demo: true },
+      });
+      if (createErr || !created.user) {
+        throw new Error(createErr?.message ?? "Failed to create demo account");
+      }
+      userId = created.user.id;
     }
-    const userId = created.user.id;
+
+    // Wipe everything from the previous demo session so this one starts clean.
+    await Promise.all([
+      supabaseAdmin.from("applications").delete().eq("user_id", userId),
+      supabaseAdmin.from("jobs").delete().eq("user_id", userId),
+      supabaseAdmin.from("sources").delete().eq("user_id", userId),
+      supabaseAdmin.from("manual_companies").delete().eq("user_id", userId),
+      supabaseAdmin.from("scan_runs").delete().eq("user_id", userId),
+      supabaseAdmin.from("scan_schedules").delete().eq("user_id", userId),
+      supabaseAdmin.from("notifications").delete().eq("user_id", userId),
+      supabaseAdmin.from("push_subscriptions").delete().eq("user_id", userId),
+    ]);
 
     // Sources
     const DEFAULT_AGGREGATORS = [
@@ -38,56 +71,34 @@ export const createDemoAccount = createServerFn({ method: "POST" }).handler(
     await supabaseAdmin.from("manual_companies").insert(
       DEFAULT_MANUAL.map((m) => ({ user_id: userId, name: m.name, url: m.url })),
     );
-    await supabaseAdmin
-      .from("keyword_config")
-      .upsert({ user_id: userId, config: DEFAULT_KEYWORD_CONFIG });
 
-    // Placeholder jobs across statuses
+    const keywordConfig = {
+      ...DEMO_KEYWORD_CONFIG,
+      location_exclude: REGION_LOCATION_EXCLUDES[data.region],
+    };
+    await supabaseAdmin.from("keyword_config").upsert({ user_id: userId, config: keywordConfig });
+
+    // Run a real scan against the live ATS boards so the demo shows genuine
+    // current postings instead of fabricated ones.
+    await runScanForUser(supabaseAdmin, userId, "manual");
+
+    // Mark a couple of the freshest matches as "interested" to show the workflow.
+    const { data: freshJobs } = await supabaseAdmin
+      .from("jobs").select("id")
+      .eq("user_id", userId)
+      .order("first_seen_at", { ascending: false })
+      .limit(2);
+    if (freshJobs?.length) {
+      await supabaseAdmin.from("jobs")
+        .update({ status: "interested", status_updated_at: new Date().toISOString() })
+        .in("id", freshJobs.map((j) => j.id));
+    }
+
+    // Illustrative application-pipeline examples — not tied to live postings,
+    // since these exist to show off every stage (screen/interview/rejected),
+    // which a live scan can't fabricate on demand.
     const now = new Date();
-    const isoDays = (d: number) =>
-      new Date(now.getTime() - d * 24 * 3600 * 1000).toISOString();
-    const dateStr = (d: number) => isoDays(d).slice(0, 10);
-    const jobs = [
-      {
-        external_id: "demo-1", source: "greenhouse", title: "Senior Frontend Engineer",
-        company: "Linear", location: "Remote (Worldwide)", url: "https://example.com/jobs/1",
-        job_date: dateStr(0), status: "new" as const,
-        matched_groups: ["frontend"], matched_keywords: ["react", "typescript"],
-      },
-      {
-        external_id: "demo-2", source: "ashby", title: "Staff Software Engineer, Product",
-        company: "Vercel", location: "Remote (US)", url: "https://example.com/jobs/2",
-        job_date: dateStr(1), status: "new" as const,
-        matched_groups: ["frontend", "remote"], matched_keywords: ["next.js"],
-      },
-      {
-        external_id: "demo-3", source: "lever", title: "Full-Stack Engineer",
-        company: "Figma", location: "Remote (EU)", url: "https://example.com/jobs/3",
-        job_date: dateStr(2), status: "interested" as const,
-        matched_groups: ["fullstack"], matched_keywords: ["node", "react"],
-      },
-      {
-        external_id: "demo-4", source: "remotive", title: "Frontend Engineer, Design Systems",
-        company: "Stripe", location: "Remote", url: "https://example.com/jobs/4",
-        job_date: dateStr(3), status: "interested" as const,
-        matched_groups: ["frontend"], matched_keywords: ["design systems"],
-      },
-      {
-        external_id: "demo-5", source: "greenhouse", title: "Software Engineer, Platform",
-        company: "Notion", location: "Remote", url: "https://example.com/jobs/5",
-        job_date: dateStr(5), status: "applied" as const,
-        matched_groups: ["backend"], matched_keywords: ["typescript"],
-      },
-      {
-        external_id: "demo-6", source: "weworkremotely", title: "Junior Backend Engineer",
-        company: "Acme Corp", location: "Onsite NYC", url: "https://example.com/jobs/6",
-        job_date: dateStr(4), status: "dismissed" as const,
-        matched_groups: [], matched_keywords: [],
-      },
-    ].map((j) => ({ ...j, user_id: userId }));
-    await supabaseAdmin.from("jobs").insert(jobs);
-
-    // Placeholder applications across stages
+    const isoDays = (d: number) => new Date(now.getTime() - d * 24 * 3600 * 1000).toISOString();
     const apps = [
       {
         company: "Notion", title: "Software Engineer, Platform", url: "https://example.com/jobs/5",
@@ -116,6 +127,5 @@ export const createDemoAccount = createServerFn({ method: "POST" }).handler(
     ].map((a) => ({ ...a, user_id: userId }));
     await supabaseAdmin.from("applications").insert(apps);
 
-    return { email, password };
-  },
-);
+    return { email: DEMO_EMAIL, password };
+  });
