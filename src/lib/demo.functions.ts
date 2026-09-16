@@ -1,12 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-// A single, fixed demo account shared by every visitor. Every "Try the
-// demo" click wipes it back to a clean slate and reseeds it — there's no
-// per-visitor isolation, so two people demoing at once could see each
-// other's changes, but that's an accepted tradeoff for now.
-const DEMO_EMAIL = "demo@demo.local";
-
+// A fresh, isolated demo account per "Try the demo" click — no shared state
+// or lookup/reuse logic, so no risk of colliding with another visitor or
+// with Supabase Auth's own duplicate-email check. These accumulate over
+// time; see api.public.demo-cleanup.ts for the periodic sweep that removes
+// them.
 export const createDemoAccount = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ region: z.enum(["all", "us", "uk", "eu", "apac"]).default("all") }).parse(input))
@@ -17,51 +16,20 @@ export const createDemoAccount = createServerFn({ method: "POST" })
       DEMO_KEYWORD_CONFIG, REGION_LOCATION_EXCLUDES,
     } = await import("@/lib/jobs/types");
 
+    const id = crypto.randomUUID();
+    const email = `demo+${id}@demo.local`;
     const password = `Demo!${crypto.randomUUID()}`;
 
-    // Find the fixed demo user (via its auto-created profile row) or create it.
-    const claimExisting = async (): Promise<string | null> => {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles").select("id").eq("email", DEMO_EMAIL).maybeSingle();
-      if (!profile) return null;
-      const id = profile.id as string;
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
-      if (updateErr) throw new Error(updateErr.message);
-      return id;
-    };
-
-    let userId = await claimExisting();
-    if (!userId) {
-      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-        email: DEMO_EMAIL,
-        password,
-        email_confirm: true,
-        user_metadata: { is_demo: true },
-      });
-      if (createErr || !created.user) {
-        // Another concurrent "Try the demo" click may have created it a
-        // moment earlier (Supabase Auth then rejects this create as a
-        // duplicate email) — the profiles row it left behind is guaranteed
-        // committed by now (its insert trigger runs in the same
-        // transaction), so recover by claiming that instead of failing.
-        userId = await claimExisting();
-        if (!userId) throw new Error(createErr?.message ?? "Failed to create demo account");
-      } else {
-        userId = created.user.id;
-      }
+    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { is_demo: true },
+    });
+    if (createErr || !created.user) {
+      throw new Error(createErr?.message ?? "Failed to create demo account");
     }
-
-    // Wipe everything from the previous demo session so this one starts clean.
-    await Promise.all([
-      supabaseAdmin.from("applications").delete().eq("user_id", userId),
-      supabaseAdmin.from("jobs").delete().eq("user_id", userId),
-      supabaseAdmin.from("sources").delete().eq("user_id", userId),
-      supabaseAdmin.from("manual_companies").delete().eq("user_id", userId),
-      supabaseAdmin.from("scan_runs").delete().eq("user_id", userId),
-      supabaseAdmin.from("scan_schedules").delete().eq("user_id", userId),
-      supabaseAdmin.from("notifications").delete().eq("user_id", userId),
-      supabaseAdmin.from("push_subscriptions").delete().eq("user_id", userId),
-    ]);
+    const userId = created.user.id;
 
     // Sources
     const DEFAULT_AGGREGATORS = [
@@ -125,5 +93,5 @@ export const createDemoAccount = createServerFn({ method: "POST" })
     ].map((a) => ({ ...a, user_id: userId }));
     await supabaseAdmin.from("applications").insert(apps);
 
-    return { email: DEMO_EMAIL, password };
+    return { email, password };
   });

@@ -9,23 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppJobsRouteImport } from './routes/_app.jobs'
-import { Route as AppHistoryRouteImport } from './routes/_app.history'
-import { Route as AppChecklistRouteImport } from './routes/_app.checklist'
 import { Route as AppApplicationsRouteImport } from './routes/_app.applications'
+import { Route as AppChecklistRouteImport } from './routes/_app.checklist'
+import { Route as AppHistoryRouteImport } from './routes/_app.history'
+import { Route as AppJobsRouteImport } from './routes/_app.jobs'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as ApiPublicDemoCleanupRouteImport } from './routes/api.public.demo-cleanup'
 import { Route as ApiPublicScanRouteImport } from './routes/api.public.scan'
 
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -33,19 +34,9 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppJobsRoute = AppJobsRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppHistoryRoute = AppHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
+const AppApplicationsRoute = AppApplicationsRouteImport.update({
+  id: '/applications',
+  path: '/applications',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChecklistRoute = AppChecklistRouteImport.update({
@@ -53,10 +44,25 @@ const AppChecklistRoute = AppChecklistRouteImport.update({
   path: '/checklist',
   getParentRoute: () => AppRoute,
 } as any)
-const AppApplicationsRoute = AppApplicationsRouteImport.update({
-  id: '/applications',
-  path: '/applications',
+const AppHistoryRoute = AppHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => AppRoute,
+} as any)
+const AppJobsRoute = AppJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const ApiPublicDemoCleanupRoute = ApiPublicDemoCleanupRouteImport.update({
+  id: '/api/public/demo-cleanup',
+  path: '/api/public/demo-cleanup',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicScanRoute = ApiPublicScanRouteImport.update({
   id: '/api/public/scan',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof AppHistoryRoute
   '/jobs': typeof AppJobsRoute
   '/settings': typeof AppSettingsRoute
+  '/api/public/demo-cleanup': typeof ApiPublicDemoCleanupRoute
   '/api/public/scan': typeof ApiPublicScanRoute
 }
 export interface FileRoutesByTo {
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/jobs': typeof AppJobsRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
+  '/api/public/demo-cleanup': typeof ApiPublicDemoCleanupRoute
   '/api/public/scan': typeof ApiPublicScanRoute
 }
 export interface FileRoutesById {
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/_app/jobs': typeof AppJobsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/': typeof AppIndexRoute
+  '/api/public/demo-cleanup': typeof ApiPublicDemoCleanupRoute
   '/api/public/scan': typeof ApiPublicScanRoute
 }
 export interface FileRouteTypes {
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/jobs'
     | '/settings'
+    | '/api/public/demo-cleanup'
     | '/api/public/scan'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/jobs'
     | '/settings'
     | '/'
+    | '/api/public/demo-cleanup'
     | '/api/public/scan'
   id:
     | '__root__'
@@ -127,29 +138,31 @@ export interface FileRouteTypes {
     | '/_app/jobs'
     | '/_app/settings'
     | '/_app/'
+    | '/api/public/demo-cleanup'
     | '/api/public/scan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicDemoCleanupRoute: typeof ApiPublicDemoCleanupRoute
   ApiPublicScanRoute: typeof ApiPublicScanRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_app': {
       id: '/_app'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -159,25 +172,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/jobs': {
-      id: '/_app/jobs'
-      path: '/jobs'
-      fullPath: '/jobs'
-      preLoaderRoute: typeof AppJobsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/history': {
-      id: '/_app/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AppHistoryRouteImport
+    '/_app/applications': {
+      id: '/_app/applications'
+      path: '/applications'
+      fullPath: '/applications'
+      preLoaderRoute: typeof AppApplicationsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/checklist': {
@@ -187,12 +186,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChecklistRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/applications': {
-      id: '/_app/applications'
-      path: '/applications'
-      fullPath: '/applications'
-      preLoaderRoute: typeof AppApplicationsRouteImport
+    '/_app/history': {
+      id: '/_app/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AppHistoryRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/jobs': {
+      id: '/_app/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AppJobsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/api/public/demo-cleanup': {
+      id: '/api/public/demo-cleanup'
+      path: '/api/public/demo-cleanup'
+      fullPath: '/api/public/demo-cleanup'
+      preLoaderRoute: typeof ApiPublicDemoCleanupRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/scan': {
       id: '/api/public/scan'
@@ -227,6 +247,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicDemoCleanupRoute: ApiPublicDemoCleanupRoute,
   ApiPublicScanRoute: ApiPublicScanRoute,
 }
 export const routeTree = rootRouteImport
