@@ -20,15 +20,18 @@ export const createDemoAccount = createServerFn({ method: "POST" })
     const password = `Demo!${crypto.randomUUID()}`;
 
     // Find the fixed demo user (via its auto-created profile row) or create it.
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles").select("id").eq("email", DEMO_EMAIL).maybeSingle();
-
-    let userId: string;
-    if (existingProfile) {
-      userId = existingProfile.id as string;
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+    const claimExisting = async (): Promise<string | null> => {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles").select("id").eq("email", DEMO_EMAIL).maybeSingle();
+      if (!profile) return null;
+      const id = profile.id as string;
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
       if (updateErr) throw new Error(updateErr.message);
-    } else {
+      return id;
+    };
+
+    let userId = await claimExisting();
+    if (!userId) {
       const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: DEMO_EMAIL,
         password,
@@ -36,9 +39,16 @@ export const createDemoAccount = createServerFn({ method: "POST" })
         user_metadata: { is_demo: true },
       });
       if (createErr || !created.user) {
-        throw new Error(createErr?.message ?? "Failed to create demo account");
+        // Another concurrent "Try the demo" click may have created it a
+        // moment earlier (Supabase Auth then rejects this create as a
+        // duplicate email) — the profiles row it left behind is guaranteed
+        // committed by now (its insert trigger runs in the same
+        // transaction), so recover by claiming that instead of failing.
+        userId = await claimExisting();
+        if (!userId) throw new Error(createErr?.message ?? "Failed to create demo account");
+      } else {
+        userId = created.user.id;
       }
-      userId = created.user.id;
     }
 
     // Wipe everything from the previous demo session so this one starts clean.
