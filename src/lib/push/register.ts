@@ -1,13 +1,8 @@
-// Service worker registration — production only, never in Lovable preview/dev.
+// Service worker registration — production only.
 function isAllowedContext(): boolean {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return false;
   if (!import.meta.env.PROD) return false;
   if (window.self !== window.top) return false;
-  const h = window.location.hostname;
-  if (h.startsWith("id-preview--") || h.startsWith("preview--")) return false;
-  if (h === "lovableproject.com" || h.endsWith(".lovableproject.com")) return false;
-  if (h === "lovableproject-dev.com" || h.endsWith(".lovableproject-dev.com")) return false;
-  if (h === "beta.lovable.dev" || h.endsWith(".beta.lovable.dev")) return false;
   if (new URL(window.location.href).searchParams.get("sw") === "off") return false;
   return true;
 }

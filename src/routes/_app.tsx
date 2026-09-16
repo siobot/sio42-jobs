@@ -17,16 +17,9 @@ function AppLayout() {
   const seed = useServerFn(seedDefaults);
   const seedM = useMutation({ mutationFn: () => seed({ data: undefined as never }) });
 
-  // Allow unauthenticated browsing inside the Lovable preview so the UI is
-  // explorable without signing in. Published deployments still require auth.
-  const isPreview =
-    typeof window !== "undefined" &&
-    (window.location.hostname.includes("id-preview--") ||
-      window.location.hostname.includes("lovableproject.com"));
-
   useEffect(() => {
-    if (!loading && !session && !isPreview) navigate({ to: "/auth" });
-  }, [loading, session, navigate, isPreview]);
+    if (!loading && !session) navigate({ to: "/auth" });
+  }, [loading, session, navigate]);
 
   useEffect(() => {
     if (session && !seedM.isPending && !seedM.isSuccess) {
@@ -37,11 +30,11 @@ function AppLayout() {
 
   const isDemo = Boolean(user?.user_metadata?.is_demo);
 
-  if (loading || (!session && !isPreview)) {
+  if (loading || !session) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
   }
   return (
-    <AppShell email={user?.email ?? (!session ? "preview mode" : null)} isDemo={isDemo}>
+    <AppShell email={user?.email ?? null} isDemo={isDemo}>
       <Outlet />
     </AppShell>
   );
