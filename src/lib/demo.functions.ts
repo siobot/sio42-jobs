@@ -16,20 +16,22 @@ export const createDemoAccount = createServerFn({ method: "POST" })
       DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_LEVER, DEFAULT_MANUAL,
       DEMO_KEYWORD_CONFIG, REGION_LOCATION_EXCLUDES,
     } = await import("@/lib/jobs/types");
-    const { runScanForUser } = await import("@/lib/jobs/scan.server");
 
     const password = `Demo!${crypto.randomUUID()}`;
 
     // Find the fixed demo user (via its auto-created profile row) or create it.
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles").select("id").eq("email", DEMO_EMAIL).maybeSingle();
-
-    let userId: string;
-    if (existingProfile) {
-      userId = existingProfile.id as string;
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+    const claimExisting = async (): Promise<string | null> => {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles").select("id").eq("email", DEMO_EMAIL).maybeSingle();
+      if (!profile) return null;
+      const id = profile.id as string;
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
       if (updateErr) throw new Error(updateErr.message);
-    } else {
+      return id;
+    };
+
+    let userId = await claimExisting();
+    if (!userId) {
       const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: DEMO_EMAIL,
         password,
@@ -37,9 +39,16 @@ export const createDemoAccount = createServerFn({ method: "POST" })
         user_metadata: { is_demo: true },
       });
       if (createErr || !created.user) {
-        throw new Error(createErr?.message ?? "Failed to create demo account");
+        // Another concurrent "Try the demo" click may have created it a
+        // moment earlier (Supabase Auth then rejects this create as a
+        // duplicate email) — the profiles row it left behind is guaranteed
+        // committed by now (its insert trigger runs in the same
+        // transaction), so recover by claiming that instead of failing.
+        userId = await claimExisting();
+        if (!userId) throw new Error(createErr?.message ?? "Failed to create demo account");
+      } else {
+        userId = created.user.id;
       }
-      userId = created.user.id;
     }
 
     // Wipe everything from the previous demo session so this one starts clean.
@@ -77,21 +86,11 @@ export const createDemoAccount = createServerFn({ method: "POST" })
     };
     await supabaseAdmin.from("keyword_config").upsert({ user_id: userId, config: keywordConfig });
 
-    // Run a real scan against the live ATS boards so the demo shows genuine
-    // current postings instead of fabricated ones.
-    await runScanForUser(supabaseAdmin, userId, "manual");
-
-    // Mark a couple of the freshest matches as "interested" to show the workflow.
-    const { data: freshJobs } = await supabaseAdmin
-      .from("jobs").select("id")
-      .eq("user_id", userId)
-      .order("first_seen_at", { ascending: false })
-      .limit(2);
-    if (freshJobs?.length) {
-      await supabaseAdmin.from("jobs")
-        .update({ status: "interested", status_updated_at: new Date().toISOString() })
-        .in("id", freshJobs.map((j) => j.id));
-    }
+    // Deliberately not running a live scan here: this handler runs
+    // synchronously before the client can sign in, and a scan across every
+    // seeded ATS board can take long enough to risk the hosting platform's
+    // request timeout. The client triggers the scan itself (via the
+    // existing `runScan`) right after signing in instead — see auth.tsx.
 
     // Illustrative application-pipeline examples — not tied to live postings,
     // since these exist to show off every stage (screen/interview/rejected),
