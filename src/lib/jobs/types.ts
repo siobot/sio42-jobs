@@ -197,6 +197,7 @@ export const DEFAULT_MANUAL = [
   { name: "Perspective", url: "https://www.perspective.co/careers#open-positions" },
   { name: "Rippling", url: "https://www.rippling.com/careers" },
   { name: "SafetyWing", url: "https://safetywing.pinpointhq.com/" },
+  { name: "Todoist", url: "https://www.todoist.com/careers#open-roles" },
   { name: "Toggl", url: "https://toggl.com/jobs/" },
   { name: "Tuple", url: "https://tuple.app/jobs" },
   { name: "Xactly", url: "https://careers.xactlycorp.com/jobs" },

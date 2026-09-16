@@ -54,12 +54,11 @@ const TYPE_LABELS: Record<string, string> = {
   greenhouse: "Greenhouse",
   ashby: "Ashby",
   lever: "Lever",
-  doist: "Doist",
   remotive: "Remotive",
   weworkremotely: "We Work Remotely",
   workingnomads: "Working Nomads",
 };
-const ATS_TYPES = ["greenhouse", "ashby", "lever", "doist"] as const;
+const ATS_TYPES = ["greenhouse", "ashby", "lever"] as const;
 const AGGREGATOR_TYPES = ["remotive", "weworkremotely", "workingnomads"] as const;
 type SourceRow = {
   id: string;
@@ -325,17 +324,25 @@ function FiltersTab() {
         </div>
       </div>
 
-      {/* Remote-only toggle */}
-      <Card className="p-4 flex items-center gap-3">
-        <Globe className="h-5 w-5 text-[color:var(--jewel-aqua)] shrink-0" />
-        <Label htmlFor="remoteOnly" className="flex-1 cursor-pointer">
-          <div className="text-sm font-medium">Remote only</div>
-          <div className="text-xs text-muted-foreground">Require a remote term in the title or location</div>
-        </Label>
-        <Switch
-          id="remoteOnly"
-          checked={draft.remote_only}
-          onCheckedChange={(v) => update({ remote_only: v })}
+      {/* Remote */}
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <Globe className="h-5 w-5 text-[color:var(--jewel-aqua)] shrink-0" />
+          <Label htmlFor="remoteOnly" className="flex-1 cursor-pointer">
+            <div className="text-sm font-medium">Remote only</div>
+            <div className="text-xs text-muted-foreground">Require one of the terms below in the title or location</div>
+          </Label>
+          <Switch
+            id="remoteOnly"
+            checked={draft.remote_only}
+            onCheckedChange={(v) => update({ remote_only: v })}
+          />
+        </div>
+        <TagInput
+          values={draft.remote_terms}
+          onChange={(next) => update({ remote_terms: next })}
+          tone="aqua"
+          placeholder="e.g. anywhere"
         />
       </Card>
 
@@ -440,23 +447,6 @@ function FiltersTab() {
             />
           </div>
         </div>
-      </Card>
-
-      {/* Remote terms */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Globe className="h-5 w-5 text-[color:var(--jewel-aqua)]" />
-          <div>
-            <div className="text-sm font-medium">Remote terms</div>
-            <div className="text-xs text-muted-foreground">Words that count as remote when “Remote only” is on.</div>
-          </div>
-        </div>
-        <TagInput
-          values={draft.remote_terms}
-          onChange={(next) => update({ remote_terms: next })}
-          tone="aqua"
-          placeholder="e.g. anywhere"
-        />
       </Card>
 
       {/* Location excludes */}

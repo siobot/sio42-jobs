@@ -68,30 +68,6 @@ export async function fetchLever(slug: string, name: string): Promise<RawJob[]> 
   });
 }
 
-export async function fetchDoist(): Promise<RawJob[]> {
-  const data = await getJson("https://doist.com/api/jobs") as Array<Record<string, unknown>>;
-  return (data ?? []).map((raw) => {
-    const id = str(raw.shortcode ?? raw.id ?? raw.title);
-    let loc: string = "Remote";
-    const l = raw.location;
-    if (typeof l === "string") loc = l;
-    else if (l && typeof l === "object") {
-      const lr = l as Record<string, unknown>;
-      loc = str(lr.location_str ?? lr.country ?? "Remote");
-      if (lr.telecommuting && loc !== "Remote") loc = `Remote — ${loc}`;
-    }
-    return {
-      external_id: `doist-${id}`,
-      source: "doist",
-      company: "Doist",
-      title: str(raw.title ?? raw.name),
-      location: loc,
-      url: str(raw.url ?? `https://doist.com/careers/${id}`),
-      job_date: str(raw.published_at ?? raw.created_at).slice(0, 10),
-    };
-  });
-}
-
 export async function fetchRemotive(): Promise<RawJob[]> {
   const data = await getJson("https://remotive.com/api/remote-jobs") as { jobs?: Array<Record<string, unknown>> };
   return (data.jobs ?? []).map((raw) => ({

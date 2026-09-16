@@ -1,7 +1,7 @@
 // Server-only scan orchestrator. Import only from .server.ts modules or inside handlers.
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  fetchAshby, fetchGreenhouse, fetchLever, fetchDoist,
+  fetchAshby, fetchGreenhouse, fetchLever,
   fetchRemotive, fetchWeWorkRemotely, fetchWorkingNomads,
 } from "./sources";
 import { filterJobs } from "./filters";
@@ -50,7 +50,6 @@ export async function runScanForUser(
     if (s.type === "greenhouse") tasks.push({ label, run: () => fetchGreenhouse(s.slug, s.name) });
     else if (s.type === "ashby") tasks.push({ label, run: () => fetchAshby(s.slug, s.name) });
     else if (s.type === "lever") tasks.push({ label, run: () => fetchLever(s.slug, s.name) });
-    else if (s.type === "doist") tasks.push({ label, run: () => fetchDoist() });
     else if (s.type === "remotive") tasks.push({ label, run: () => fetchRemotive() });
     else if (s.type === "weworkremotely") tasks.push({ label, run: () => fetchWeWorkRemotely() });
     else if (s.type === "workingnomads") tasks.push({ label, run: () => fetchWorkingNomads() });

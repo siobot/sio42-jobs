@@ -56,7 +56,6 @@ export const createDemoAccount = createServerFn({ method: "POST" })
 
     // Sources
     const DEFAULT_AGGREGATORS = [
-      { type: "doist" as const, name: "Doist" },
       { type: "remotive" as const, name: "Remotive" },
       { type: "weworkremotely" as const, name: "We Work Remotely" },
       { type: "workingnomads" as const, name: "Working Nomads" },

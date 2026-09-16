@@ -44,7 +44,12 @@ function JobsPage() {
       if (source !== "all") query = query.eq("source", source);
       if (q.trim()) query = query.or(`title.ilike.%${q}%,company.ilike.%${q}%`);
       const { data } = await query;
-      return data ?? [];
+      const rows = data ?? [];
+      // Pin "interested" jobs above everything else (relevant on the "All"
+      // tab, where statuses are otherwise interleaved by recency); stable
+      // sort preserves the first_seen_at-desc order within each group.
+      rows.sort((a, b) => (a.status === "interested" ? 0 : 1) - (b.status === "interested" ? 0 : 1));
+      return rows;
     },
   });
 
@@ -84,7 +89,6 @@ function JobsPage() {
               <SelectItem value="greenhouse">Greenhouse</SelectItem>
               <SelectItem value="ashby">Ashby</SelectItem>
               <SelectItem value="lever">Lever</SelectItem>
-              <SelectItem value="doist">Doist</SelectItem>
               <SelectItem value="remotive">Remotive</SelectItem>
               <SelectItem value="weworkremotely">WeWorkRemotely</SelectItem>
               <SelectItem value="workingnomads">WorkingNomads</SelectItem>
