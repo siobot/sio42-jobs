@@ -19,19 +19,25 @@ export const createDemoAccount = createServerFn({ method: "POST" })
 
     const password = `Demo!${crypto.randomUUID()}`;
 
-    // Find the fixed demo user (via its auto-created profile row) or create it.
-    const claimExisting = async (): Promise<string | null> => {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles").select("id").eq("email", DEMO_EMAIL).maybeSingle();
-      if (!profile) return null;
-      const id = profile.id as string;
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
-      if (updateErr) throw new Error(updateErr.message);
-      return id;
+    // Find the fixed demo user via the Admin API directly — not the
+    // `profiles` table, which can be missing or out of sync with auth.users
+    // for reasons unrelated to whether the account actually exists.
+    const findDemoUserId = async (): Promise<string | null> => {
+      for (let page = 1; page <= 25; page++) {
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        if (error || !data) return null;
+        const match = data.users.find((u) => u.email === DEMO_EMAIL);
+        if (match) return match.id;
+        if (data.users.length < 200) return null;
+      }
+      return null;
     };
 
-    let userId = await claimExisting();
-    if (!userId) {
+    let userId = await findDemoUserId();
+    if (userId) {
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+      if (updateErr) throw new Error(updateErr.message);
+    } else {
       const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: DEMO_EMAIL,
         password,
@@ -39,12 +45,9 @@ export const createDemoAccount = createServerFn({ method: "POST" })
         user_metadata: { is_demo: true },
       });
       if (createErr || !created.user) {
-        // Another concurrent "Try the demo" click may have created it a
-        // moment earlier (Supabase Auth then rejects this create as a
-        // duplicate email) — the profiles row it left behind is guaranteed
-        // committed by now (its insert trigger runs in the same
-        // transaction), so recover by claiming that instead of failing.
-        userId = await claimExisting();
+        // Another concurrent "Try the demo" click likely won the race —
+        // look the account up directly rather than failing outright.
+        userId = await findDemoUserId();
         if (!userId) throw new Error(createErr?.message ?? "Failed to create demo account");
       } else {
         userId = created.user.id;
