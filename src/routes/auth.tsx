@@ -10,7 +10,6 @@ import { useAuthSession } from "@/hooks/use-auth-session";
 import { useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createDemoAccount } from "@/lib/demo.functions";
-import { runScan, setJobStatus } from "@/lib/jobs/api.functions";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const REGION_OPTIONS = [
@@ -37,8 +36,6 @@ function AuthPage() {
   const [demoBusy, setDemoBusy] = useState(false);
   const [region, setRegion] = useState<Region>("all");
   const createDemo = useServerFn(createDemoAccount);
-  const scan = useServerFn(runScan);
-  const setStatus = useServerFn(setJobStatus);
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/" });
@@ -70,22 +67,11 @@ function AuthPage() {
       const creds = await createDemo({ data: { region } });
       const { error } = await supabase.auth.signInWithPassword(creds);
       if (error) throw error;
-      toast.success("Demo account ready — fetching live jobs…");
-      navigate({ to: "/" });
-      // Run the live scan and pre-mark a couple of results "interested" in
-      // the background, after navigation — account setup shouldn't block on
-      // a scan across every seeded ATS board.
-      scan({ data: undefined as never })
-        .then(async () => {
-          const { data: fresh } = await supabase
-            .from("jobs").select("id")
-            .order("first_seen_at", { ascending: false })
-            .limit(2);
-          for (const j of fresh ?? []) {
-            await setStatus({ data: { id: j.id, status: "interested" } });
-          }
-        })
-        .catch(() => { /* best effort — demo is still usable without this */ });
+      // Navigate immediately — account setup is DB-only now and fast. The
+      // Jobs Feed page itself runs the live scan (and shows loading
+      // skeletons while it does), so sign-in doesn't wait on a scan across
+      // every seeded ATS board.
+      navigate({ to: "/", search: { demo: "1" } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not start demo");
     } finally {
