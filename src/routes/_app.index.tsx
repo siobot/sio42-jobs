@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { runScan } from "@/lib/jobs/api.functions";
+import { runScan, setJobStatus } from "@/lib/jobs/api.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { RefreshCw } from "lucide-react";
@@ -13,15 +16,68 @@ import { JobActions } from "@/components/job-actions";
 
 type Status = "new" | "interested" | "applied" | "dismissed" | "archived";
 
+const DEMO_LOADING_MESSAGES = [
+  "Building your keyword filters…",
+  "Scanning career pages and job boards…",
+  "Matching postings against your keywords…",
+  "Marking a few favorites…",
+];
+
+const searchSchema = z.object({
+  demo: z.literal("1").optional(),
+});
 
 export const Route = createFileRoute("/_app/")({
   head: () => ({ meta: [{ title: "Jobs Feed — Job Monitor" }] }),
+  validateSearch: searchSchema,
   component: Dashboard,
 });
 
 function Dashboard() {
   const qc = useQueryClient();
+  const navigate = Route.useNavigate();
+  const search = Route.useSearch();
   const scan = useServerFn(runScan);
+  const setStatus = useServerFn(setJobStatus);
+
+  // "Try the demo" lands here right after sign-in, before any scan has run —
+  // kick one off now and show loading skeletons instead of an empty feed.
+  const [demoLoading, setDemoLoading] = useState(search.demo === "1");
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!demoLoading) return;
+    const t = setInterval(
+      () => setMessageIndex((i) => (i + 1) % DEMO_LOADING_MESSAGES.length),
+      1800,
+    );
+    return () => clearInterval(t);
+  }, [demoLoading]);
+
+  useEffect(() => {
+    if (search.demo !== "1") return;
+    // Drop the flag from the URL immediately so a refresh mid-scan (or
+    // coming back later) doesn't re-trigger this.
+    navigate({ to: "/", search: {}, replace: true });
+    (async () => {
+      try {
+        await scan({ data: undefined as never });
+        const { data: fresh } = await supabase
+          .from("jobs").select("id")
+          .order("first_seen_at", { ascending: false })
+          .limit(2);
+        for (const j of fresh ?? []) {
+          await setStatus({ data: { id: j.id, status: "interested" } });
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not load demo jobs");
+      } finally {
+        setDemoLoading(false);
+        qc.invalidateQueries();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const stats = useQuery({
     queryKey: ["dashboard-stats"],
@@ -79,70 +135,108 @@ function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Jobs Feed</h1>
-          <p className="text-sm text-muted-foreground">Last scan: {lastRunRel}</p>
+          <p className="text-sm text-muted-foreground">
+            {demoLoading ? DEMO_LOADING_MESSAGES[messageIndex] : `Last scan: ${lastRunRel}`}
+          </p>
         </div>
-        <Button onClick={() => scanM.mutate()} disabled={scanM.isPending}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending ? "animate-spin" : ""}`} />
-          {scanM.isPending ? "Scanning…" : "Run scan now"}
+        <Button onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending || demoLoading ? "animate-spin" : ""}`} />
+          {scanM.isPending || demoLoading ? "Scanning…" : "Run scan now"}
         </Button>
       </div>
 
+      {demoLoading ? (
+        <DashboardSkeleton />
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <StatCard label="New matches" value={stats.data?.newCount ?? 0} to="/" />
+            <StatCard label="Interested" value={stats.data?.interested ?? 0} to="/" />
+            <StatCard label="Applied" value={stats.data?.applied ?? 0} to="/applications" />
+          </div>
+
+          <Card className="p-4">
+            <h2 className="text-sm font-medium mb-3">Interested</h2>
+            <div className="divide-y divide-border">
+              {(interested.data ?? []).map((j) => (
+                <div key={j.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <a href={j.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate block">
+                      {j.title}
+                    </a>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {j.company} · {j.source}
+                      {(j.matched_groups ?? []).map((g) => (
+                        <Badge key={g} variant="secondary" className="ml-1 text-[10px]">{g}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <JobActions jobId={j.id} status={j.status as Status} />
+                </div>
+              ))}
+              {(interested.data ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground py-2">No jobs marked interested yet.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <h2 className="text-sm font-medium mb-3">Recently added</h2>
+            <div className="divide-y divide-border">
+              {(recent.data ?? []).map((j) => (
+                <div key={j.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <a href={j.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate block">
+                      {j.title}
+                    </a>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {j.company} · {j.source}
+                      {(j.matched_groups ?? []).map((g) => (
+                        <Badge key={g} variant="secondary" className="ml-1 text-[10px]">{g}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <JobActions jobId={j.id} status={j.status as Status} />
+                </div>
+              ))}
+              {(recent.data ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground py-2">No jobs yet — run a scan to start.</p>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="New matches" value={stats.data?.newCount ?? 0} to="/" />
-        <StatCard label="Interested" value={stats.data?.interested ?? 0} to="/" />
-        <StatCard label="Applied" value={stats.data?.applied ?? 0} to="/applications" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className="p-4 space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-12" />
+          </Card>
+        ))}
       </div>
-
-      <Card className="p-4">
-        <h2 className="text-sm font-medium mb-3">Recently added</h2>
-        <div className="divide-y divide-border">
-          {(recent.data ?? []).map((j) => (
-            <div key={j.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <a href={j.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate block">
-                  {j.title}
-                </a>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {j.company} · {j.source}
-                  {(j.matched_groups ?? []).map((g) => (
-                    <Badge key={g} variant="secondary" className="ml-1 text-[10px]">{g}</Badge>
-                  ))}
+      {Array.from({ length: 2 }).map((_, section) => (
+        <Card key={section} className="p-4 space-y-3">
+          <Skeleton className="h-4 w-28" />
+          <div className="divide-y divide-border">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-1/3" />
                 </div>
+                <Skeleton className="h-8 w-40 shrink-0" />
               </div>
-              <JobActions jobId={j.id} status={j.status as Status} />
-            </div>
-          ))}
-          {(recent.data ?? []).length === 0 && (
-            <p className="text-sm text-muted-foreground py-2">No jobs yet — run a scan to start.</p>
-          )}
-
-        </div>
-      </Card>
-
-      <Card className="p-4">
-        <h2 className="text-sm font-medium mb-3">Interested</h2>
-        <div className="divide-y divide-border">
-          {(interested.data ?? []).map((j) => (
-            <div key={j.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <a href={j.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate block">
-                  {j.title}
-                </a>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {j.company} · {j.source}
-                  {(j.matched_groups ?? []).map((g) => (
-                    <Badge key={g} variant="secondary" className="ml-1 text-[10px]">{g}</Badge>
-                  ))}
-                </div>
-              </div>
-              <JobActions jobId={j.id} status={j.status as Status} />
-            </div>
-          ))}
-          {(interested.data ?? []).length === 0 && (
-            <p className="text-sm text-muted-foreground py-2">No jobs marked interested yet.</p>
-          )}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }
