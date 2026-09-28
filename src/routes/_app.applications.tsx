@@ -24,7 +24,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ExternalLink, Plus, Trash2, CalendarIcon, X, Search, Pencil } from "lucide-react";
+import { ExternalLink, Plus, Trash2, CalendarIcon, X, Search, Pencil, Download } from "lucide-react";
 import { toast } from "sonner";
 
 type Stage = "applied" | "screen" | "interview" | "offer" | "rejected" | "withdrawn";
@@ -94,6 +94,38 @@ function computeRange(range: RangeKey, from?: string, to?: string): { start: Dat
   const f = parseISODate(from);
   const t = parseISODate(to);
   return { start: f ? startOfDay(f) : null, end: t ? endOfDay(t) : null };
+}
+
+function csvCell(v: unknown): string {
+  const s = v == null ? "" : String(v);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function applicationsToCsv(rows: Array<{
+  company: string; title: string; stage: string; applied_at: string | null;
+  url: string | null; linkedin_easy_apply: boolean | null; notes: string | null;
+}>): string {
+  const header = ["Company", "Title", "Stage", "Applied At", "URL", "LinkedIn Easy Apply", "Notes"];
+  const lines = [header.map(csvCell).join(",")];
+  for (const a of rows) {
+    lines.push([
+      a.company, a.title, a.stage, a.applied_at ?? "", a.url ?? "",
+      a.linkedin_easy_apply ? "Yes" : "No", a.notes ?? "",
+    ].map(csvCell).join(","));
+  }
+  return lines.join("\r\n");
+}
+
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 const PRESETS: Array<{ key: RangeKey; label: string }> = [
@@ -250,7 +282,20 @@ function ApplicationsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Applications</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Applications</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          title="Exports the applications currently shown, respecting your filters"
+          onClick={() => {
+            if (filtered.length === 0) { toast.error("Nothing to export"); return; }
+            downloadCsv(`applications-${toISODate(new Date())}.csv`, applicationsToCsv(filtered));
+          }}
+        >
+          <Download className="h-4 w-4 mr-1" /> Export CSV
+        </Button>
+      </div>
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
