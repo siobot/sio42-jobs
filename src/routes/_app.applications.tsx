@@ -101,15 +101,20 @@ function csvCell(v: unknown): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+function dateOnly(iso: string | null | undefined): string {
+  return iso ? iso.slice(0, 10) : "";
+}
+
 function applicationsToCsv(rows: Array<{
   company: string; title: string; stage: string; applied_at: string | null;
   url: string | null; linkedin_easy_apply: boolean | null; notes: string | null;
+  lastStageUpdate: string | null;
 }>): string {
-  const header = ["Company", "Title", "Stage", "Applied At", "URL", "LinkedIn Easy Apply", "Notes"];
+  const header = ["Company", "Title", "Stage", "Applied At", "Last Stage Update", "URL", "LinkedIn Easy Apply", "Notes"];
   const lines = [header.map(csvCell).join(",")];
   for (const a of rows) {
     lines.push([
-      a.company, a.title, a.stage, a.applied_at ?? "", a.url ?? "",
+      a.company, a.title, a.stage, dateOnly(a.applied_at), dateOnly(a.lastStageUpdate), a.url ?? "",
       a.linkedin_easy_apply ? "Yes" : "No", a.notes ?? "",
     ].map(csvCell).join(","));
   }
@@ -290,7 +295,11 @@ function ApplicationsPage() {
           title="Exports the applications currently shown, respecting your filters"
           onClick={() => {
             if (filtered.length === 0) { toast.error("Nothing to export"); return; }
-            downloadCsv(`applications-${toISODate(new Date())}.csv`, applicationsToCsv(filtered));
+            const rows = filtered.map((a) => {
+              const timeline = eventsByApp.get(a.id) ?? [];
+              return { ...a, lastStageUpdate: timeline[timeline.length - 1]?.changed_at ?? null };
+            });
+            downloadCsv(`applications-${toISODate(new Date())}.csv`, applicationsToCsv(rows));
           }}
         >
           <Download className="h-4 w-4 mr-1" /> Export CSV
