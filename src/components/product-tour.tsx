@@ -7,22 +7,22 @@ export type TourStep = { target: string; title: string; body: string };
 const TOUR_STEPS: TourStep[] = [
   {
     target: "scan",
-    title: "Run a live scan",
-    body: "Checks every source at once — company job boards on Greenhouse, Ashby and Lever, plus remote job boards — and adds new matches to your feed.",
+    title: "Automatic scanning",
+    body: "Checks every source at once — company job boards on Greenhouse, Ashby, and Lever, plus remote job boards — and adds new matches to your feed. See when the last scan ran, and run a new one any time from here.",
   },
   {
     target: "interested",
     title: "Your shortlist",
-    body: "Mark any job Interested, Applied or Not Interested with the buttons on its row. Interested jobs stay pinned here at the top.",
+    body: "Mark any job Interested, Applied, or Not Interested with the buttons on its row. Interested jobs stay pinned here at the top, and choosing Applied moves the job to the Applications tab.",
   },
   {
     target: "nav-applications",
     title: "Track applications",
-    body: "Follow each application through screen, interview and offer, keep notes, and export everything to CSV.",
+    body: "Follow each application through the screen, interview, and offer stages, keep notes, and export everything to CSV.",
   },
   {
     target: "nav-checklist",
-    title: "Other Career Pages",
+    title: "No standard job board?",
     body: "Companies without a supported job board. Open each careers page from here and the app remembers when you last checked.",
   },
   {

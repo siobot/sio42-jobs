@@ -144,17 +144,17 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div data-tour="scan" className="inline-flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">Jobs Feed</h1>
-          <p className="text-sm text-muted-foreground">
-            {demoLoading ? "Setting up your demo…" : `Last scan: ${lastRunRel}`}
-          </p>
+          <Button size="sm" onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending || demoLoading ? "animate-spin" : ""}`} />
+            {scanM.isPending || demoLoading ? "Scanning…" : "Run scan now"}
+          </Button>
         </div>
-        <Button data-tour="scan" onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending || demoLoading ? "animate-spin" : ""}`} />
-          {scanM.isPending || demoLoading ? "Scanning…" : "Run scan now"}
-        </Button>
+        <p className="text-sm text-muted-foreground">
+          {demoLoading ? "Setting up your demo…" : `Last scan: ${lastRunRel}`}
+        </p>
       </div>
 
       {demoLoading ? (
