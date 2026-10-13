@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, ListChecks, Send, Settings, History, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, ListChecks, Send, Settings, History, LogOut, Menu, X, Compass } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { markAllNotificationsRead } from "@/lib/jobs/api.functions";
@@ -7,12 +7,15 @@ import { ensureServiceWorker, updateAppBadge } from "@/lib/push/register";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { to: "/", label: "Jobs Feed", icon: LayoutDashboard },
-  { to: "/applications", label: "Applications", icon: Send },
-  { to: "/checklist", label: "Other Career Pages", icon: ListChecks },
-  { to: "/history", label: "Scan history", icon: History },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", label: "Jobs Feed", icon: LayoutDashboard, tour: "nav-feed" },
+  { to: "/applications", label: "Applications", icon: Send, tour: "nav-applications" },
+  { to: "/checklist", label: "Other Career Pages", icon: ListChecks, tour: "nav-checklist" },
+  { to: "/history", label: "Scan history", icon: History, tour: "nav-history" },
+  { to: "/settings", label: "Settings", icon: Settings, tour: "nav-settings" },
 ] as const;
+
+const secondaryItemClass =
+  "flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors";
 
 export function AppShell({ children, email, isDemo }: { children: React.ReactNode; email?: string | null; isDemo?: boolean }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -95,7 +98,7 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
           <X className="h-5 w-5" />
         </button>
       </div>
-      <nav className="flex flex-col gap-1 flex-1">
+      <nav className="flex flex-col gap-1">
         {nav.map((n) => {
           const Icon = n.icon;
           const active = n.to === "/" ? path === "/" : path.startsWith(n.to);
@@ -103,6 +106,7 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
             <Link
               key={n.to}
               to={n.to}
+              data-tour={n.tour}
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
                 active
@@ -115,13 +119,16 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
             </Link>
           );
         })}
+        <div className="my-2 border-t border-sidebar-border" />
+        {isDemo && (
+          <Link to="/" search={{ tour: "1" }} className={secondaryItemClass}>
+            <Compass className="h-4 w-4" /> Take the tour
+          </Link>
+        )}
+        <button type="button" onClick={() => supabase.auth.signOut()} className={secondaryItemClass}>
+          <LogOut className="h-4 w-4" /> Sign out
+        </button>
       </nav>
-      <button
-        onClick={() => supabase.auth.signOut()}
-        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-sidebar-accent/50"
-      >
-        <LogOut className="h-4 w-4" /> Sign out
-      </button>
     </>
   );
 

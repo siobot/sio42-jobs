@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { runScan, setJobStatus } from "@/lib/jobs/api.functions";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { RefreshCw } from "lucide-react";
 import { JobActions } from "@/components/job-actions";
+import { ProductTour } from "@/components/product-tour";
 
 type Status = "new" | "interested" | "applied" | "dismissed" | "archived";
 
@@ -25,6 +26,7 @@ const DEMO_LOADING_MESSAGES = [
 
 const searchSchema = z.object({
   demo: z.literal("1").optional(),
+  tour: z.literal("1").optional(),
 });
 
 export const Route = createFileRoute("/_app/")({
@@ -44,6 +46,15 @@ function Dashboard() {
   // kick one off now and show loading skeletons instead of an empty feed.
   const [demoLoading, setDemoLoading] = useState(search.demo === "1");
   const [messageIndex, setMessageIndex] = useState(0);
+  const [tourOpen, setTourOpen] = useState(false);
+  const closeTour = useCallback(() => setTourOpen(false), []);
+
+  // "Take the tour" in the sidebar links here with ?tour=1.
+  useEffect(() => {
+    if (search.tour !== "1") return;
+    navigate({ to: "/", search: {}, replace: true });
+    setTourOpen(true);
+  }, [search.tour, navigate]);
 
   useEffect(() => {
     if (!demoLoading) return;
@@ -74,6 +85,7 @@ function Dashboard() {
       } finally {
         setDemoLoading(false);
         qc.invalidateQueries();
+        setTourOpen(true);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,7 +151,7 @@ function Dashboard() {
             {demoLoading ? DEMO_LOADING_MESSAGES[messageIndex] : `Last scan: ${lastRunRel}`}
           </p>
         </div>
-        <Button onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
+        <Button data-tour="scan" onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending || demoLoading ? "animate-spin" : ""}`} />
           {scanM.isPending || demoLoading ? "Scanning…" : "Run scan now"}
         </Button>
@@ -155,7 +167,7 @@ function Dashboard() {
             <StatCard label="Applied" value={stats.data?.applied ?? 0} to="/applications" />
           </div>
 
-          <Card className="p-4">
+          <Card className="p-4" data-tour="interested">
             <h2 className="text-sm font-medium mb-3">Interested</h2>
             <div className="divide-y divide-border">
               {(interested.data ?? []).map((j) => (
@@ -206,6 +218,7 @@ function Dashboard() {
           </Card>
         </>
       )}
+      <ProductTour open={tourOpen && !demoLoading} onClose={closeTour} />
     </div>
   );
 }
