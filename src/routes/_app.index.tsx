@@ -144,21 +144,32 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div data-tour="scan" className="inline-flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">Jobs Feed</h1>
-          <p className="text-sm text-muted-foreground">
-            {demoLoading ? DEMO_LOADING_MESSAGES[messageIndex] : `Last scan: ${lastRunRel}`}
-          </p>
+          <Button size="sm" onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending || demoLoading ? "animate-spin" : ""}`} />
+            {scanM.isPending || demoLoading ? "Scanning…" : "Run scan now"}
+          </Button>
         </div>
-        <Button data-tour="scan" onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending || demoLoading ? "animate-spin" : ""}`} />
-          {scanM.isPending || demoLoading ? "Scanning…" : "Run scan now"}
-        </Button>
+        <p className="text-sm text-muted-foreground">
+          {demoLoading ? "Setting up your demo…" : `Last scan: ${lastRunRel}`}
+        </p>
       </div>
 
       {demoLoading ? (
-        <DashboardSkeleton />
+        <div className="relative">
+          <DashboardSkeleton />
+          <div className="absolute inset-0 flex items-start justify-center pt-24 sm:pt-32" aria-live="polite">
+            <Card className="px-6 py-5 flex flex-col items-center gap-3 text-center shadow-xl max-w-sm">
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+              <div className="text-base font-medium">{DEMO_LOADING_MESSAGES[messageIndex]}</div>
+              <div className="text-xs text-muted-foreground">
+                Running a live search of real job boards — this takes a few seconds.
+              </div>
+            </Card>
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-4">
