@@ -20,6 +20,10 @@ export async function runScanForUser(
   supabase: SupabaseClient,
   userId: string,
   triggeredBy: "manual" | "cron" = "manual",
+  // Demo accounts: delete any source that fails and leave it out of the
+  // run's record, so a visitor never sees errors from boards they didn't
+  // pick. Real accounts keep failures visible in Scan history.
+  { pruneFailingSources = false }: { pruneFailingSources?: boolean } = {},
 ): Promise<ScanResult> {
   // Insert run row
   const { data: runRow, error: runErr } = await supabase
@@ -37,36 +41,43 @@ export async function runScanForUser(
   // Load user config + sources in parallel
   const [{ data: cfgRow }, { data: sourceRows }] = await Promise.all([
     supabase.from("keyword_config").select("config").eq("user_id", userId).maybeSingle(),
-    supabase.from("sources").select("type, slug, name, enabled").eq("user_id", userId).eq("enabled", true),
+    supabase.from("sources").select("id, type, slug, name, enabled").eq("user_id", userId).eq("enabled", true),
   ]);
   const config: KeywordConfig = (cfgRow?.config as KeywordConfig | undefined) ?? DEFAULT_KEYWORD_CONFIG;
 
   // Build fetcher tasks
-  type Task = { label: string; run: () => Promise<RawJob[]> };
+  type Task = { label: string; sourceId: string; run: () => Promise<RawJob[]> };
   const tasks: Task[] = [];
 
   for (const s of sourceRows ?? []) {
     const label = `${s.type}/${s.name}`;
-    if (s.type === "greenhouse") tasks.push({ label, run: () => fetchGreenhouse(s.slug, s.name) });
-    else if (s.type === "ashby") tasks.push({ label, run: () => fetchAshby(s.slug, s.name) });
-    else if (s.type === "lever") tasks.push({ label, run: () => fetchLever(s.slug, s.name) });
-    else if (s.type === "remotive") tasks.push({ label, run: () => fetchRemotive() });
-    else if (s.type === "weworkremotely") tasks.push({ label, run: () => fetchWeWorkRemotely() });
-    else if (s.type === "workingnomads") tasks.push({ label, run: () => fetchWorkingNomads() });
+    const sourceId = s.id as string;
+    if (s.type === "greenhouse") tasks.push({ label, sourceId, run: () => fetchGreenhouse(s.slug, s.name) });
+    else if (s.type === "ashby") tasks.push({ label, sourceId, run: () => fetchAshby(s.slug, s.name) });
+    else if (s.type === "lever") tasks.push({ label, sourceId, run: () => fetchLever(s.slug, s.name) });
+    else if (s.type === "remotive") tasks.push({ label, sourceId, run: () => fetchRemotive() });
+    else if (s.type === "weworkremotely") tasks.push({ label, sourceId, run: () => fetchWeWorkRemotely() });
+    else if (s.type === "workingnomads") tasks.push({ label, sourceId, run: () => fetchWorkingNomads() });
   }
 
+  const failedSourceIds: string[] = [];
   const settled = await Promise.allSettled(tasks.map((t) => t.run()));
   settled.forEach((res, i) => {
-    const label = tasks[i].label;
+    const { label, sourceId } = tasks[i];
     if (res.status === "fulfilled") {
       sourceCounts[label] = res.value.length;
       all.push(...res.value);
+    } else if (pruneFailingSources) {
+      failedSourceIds.push(sourceId);
     } else {
       const msg = res.reason instanceof Error ? res.reason.message : String(res.reason);
       errors.push({ source: label, error: msg });
       sourceCounts[label] = 0;
     }
   });
+  if (failedSourceIds.length > 0) {
+    await supabase.from("sources").delete().eq("user_id", userId).in("id", failedSourceIds);
+  }
 
   const matchedRaw = filterJobs(all, config);
   // Dedupe by external_id (same posting can appear from multiple sources)
@@ -120,7 +131,7 @@ export async function runScanForUser(
         const { error } = await supabase
           .from("jobs")
           .upsert(chunk, { onConflict: "user_id,external_id", ignoreDuplicates: true });
-        if (error) errors.push({ source: "db_insert", error: error.message });
+        if (error && !pruneFailingSources) errors.push({ source: "db_insert", error: error.message });
       }
     }
 
