@@ -148,7 +148,7 @@ function Dashboard() {
         <div>
           <h1 className="text-2xl font-semibold">Jobs Feed</h1>
           <p className="text-sm text-muted-foreground">
-            {demoLoading ? DEMO_LOADING_MESSAGES[messageIndex] : `Last scan: ${lastRunRel}`}
+            {demoLoading ? "Setting up your demo…" : `Last scan: ${lastRunRel}`}
           </p>
         </div>
         <Button data-tour="scan" onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
@@ -158,7 +158,18 @@ function Dashboard() {
       </div>
 
       {demoLoading ? (
-        <DashboardSkeleton />
+        <div className="relative">
+          <DashboardSkeleton />
+          <div className="absolute inset-0 flex items-start justify-center pt-24 sm:pt-32" aria-live="polite">
+            <Card className="px-6 py-5 flex flex-col items-center gap-3 text-center shadow-xl max-w-sm">
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+              <div className="text-base font-medium">{DEMO_LOADING_MESSAGES[messageIndex]}</div>
+              <div className="text-xs text-muted-foreground">
+                Running a live search of real job boards — this takes a few seconds.
+              </div>
+            </Card>
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-4">
