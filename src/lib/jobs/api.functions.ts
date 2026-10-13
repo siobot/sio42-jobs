@@ -13,7 +13,8 @@ export const runScan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { runScanForUser } = await import("./scan.server");
-    return runScanForUser(context.supabase, context.userId, "manual");
+    const isDemo = Boolean((context.claims.user_metadata as { is_demo?: boolean } | undefined)?.is_demo);
+    return runScanForUser(context.supabase, context.userId, "manual", { pruneFailingSources: isDemo });
   });
 
 // Default aggregator boards (no slug; one row per board)
