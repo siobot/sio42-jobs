@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,13 +26,19 @@ function AuthPage() {
   const [demoBusy, setDemoBusy] = useState(false);
   const createDemo = useServerFn(createDemoAccount);
 
+  // Sends an already-signed-in visitor straight to the app. Stands down once
+  // the form or demo button starts signing in: they navigate themselves, and
+  // this effect firing on the new session would replace the demo's
+  // navigation (dropping its ?demo=1 flag).
+  const signingInRef = useRef(false);
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/" });
+    if (!loading && session && !signingInRef.current) navigate({ to: "/" });
   }, [loading, session, navigate]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    signingInRef.current = true;
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({ email, password });
@@ -44,6 +50,7 @@ function AuthPage() {
       }
       navigate({ to: "/" });
     } catch (err) {
+      signingInRef.current = false;
       toast.error(err instanceof Error ? err.message : "Auth failed");
     } finally {
       setBusy(false);
@@ -52,6 +59,7 @@ function AuthPage() {
 
   async function tryDemo() {
     setDemoBusy(true);
+    signingInRef.current = true;
     try {
       const creds = await createDemo();
       const { error } = await supabase.auth.signInWithPassword(creds);
@@ -62,6 +70,7 @@ function AuthPage() {
       // every seeded ATS board.
       navigate({ to: "/", search: { demo: "1" } });
     } catch (err) {
+      signingInRef.current = false;
       toast.error(err instanceof Error ? err.message : "Could not start demo");
     } finally {
       setDemoBusy(false);
