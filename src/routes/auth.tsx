@@ -10,16 +10,6 @@ import { useAuthSession } from "@/hooks/use-auth-session";
 import { useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createDemoAccount } from "@/lib/demo.functions";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-
-const REGION_OPTIONS = [
-  { value: "all", label: "Everywhere" },
-  { value: "us", label: "US" },
-  { value: "uk", label: "UK" },
-  { value: "eu", label: "EU" },
-  { value: "apac", label: "APAC" },
-] as const;
-type Region = (typeof REGION_OPTIONS)[number]["value"];
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — Job Monitor" }] }),
@@ -34,7 +24,6 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
-  const [region, setRegion] = useState<Region>("all");
   const createDemo = useServerFn(createDemoAccount);
 
   useEffect(() => {
@@ -64,7 +53,7 @@ function AuthPage() {
   async function tryDemo() {
     setDemoBusy(true);
     try {
-      const creds = await createDemo({ data: { region } });
+      const creds = await createDemo();
       const { error } = await supabase.auth.signInWithPassword(creds);
       if (error) throw error;
       // Navigate immediately — account setup is DB-only now and fast. The
@@ -112,36 +101,17 @@ function AuthPage() {
             <span className="bg-card px-2 text-muted-foreground">or</span>
           </div>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Focus on jobs in</Label>
-          <ToggleGroup
-            type="single"
-            value={region}
-            onValueChange={(v) => v && setRegion(v as Region)}
-            className="justify-start flex-wrap"
-            disabled={busy || demoBusy}
-          >
-            {REGION_OPTIONS.map((r) => (
-              <ToggleGroupItem key={r.value} value={r.value} size="sm" className="text-xs px-2.5">
-                {r.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
         <Button
           type="button"
           variant="outline"
-          className="w-full mt-3"
+          className="w-full"
           disabled={busy || demoBusy}
           onClick={tryDemo}
         >
           {demoBusy ? "Setting up demo..." : "Try the demo"}
         </Button>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          No signup — explore with real, live sample jobs and applications.
-          {region === "all"
-            ? " Showing jobs from everywhere."
-            : ` Showing only ${REGION_OPTIONS.find((r) => r.value === region)?.label} jobs — other regions are excluded.`}
+          No signup — explore live software-engineering jobs across EMEA, plus sample applications.
         </p>
       </Card>
     </div>

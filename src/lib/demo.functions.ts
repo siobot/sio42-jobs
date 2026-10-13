@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 
 // A fresh, isolated demo account per "Try the demo" click — no shared state
 // or lookup/reuse logic, so no risk of colliding with another visitor or
@@ -7,13 +6,10 @@ import { z } from "zod";
 // time; see api.public.demo-cleanup.ts for the periodic sweep that removes
 // them.
 export const createDemoAccount = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z.object({ region: z.enum(["all", "us", "uk", "eu", "apac"]).default("all") }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const {
-      DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_LEVER, DEFAULT_MANUAL,
-      DEMO_KEYWORD_CONFIG, REGION_LOCATION_EXCLUDES,
+      DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_LEVER, DEFAULT_MANUAL, DEMO_KEYWORD_CONFIG,
     } = await import("@/lib/jobs/types");
 
     const id = crypto.randomUUID();
@@ -48,11 +44,7 @@ export const createDemoAccount = createServerFn({ method: "POST" })
       DEFAULT_MANUAL.map((m) => ({ user_id: userId, name: m.name, url: m.url })),
     );
 
-    const keywordConfig = {
-      ...DEMO_KEYWORD_CONFIG,
-      location_exclude: REGION_LOCATION_EXCLUDES[data.region],
-    };
-    await supabaseAdmin.from("keyword_config").upsert({ user_id: userId, config: keywordConfig });
+    await supabaseAdmin.from("keyword_config").upsert({ user_id: userId, config: DEMO_KEYWORD_CONFIG });
 
     // Deliberately not running a live scan here: this handler runs
     // synchronously before the client can sign in, and a scan across every
