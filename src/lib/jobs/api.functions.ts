@@ -260,7 +260,7 @@ export const updateApplication = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({
       id: z.string().uuid(),
-      stage: z.enum(["applied", "screen", "interview", "offer", "rejected", "withdrawn"]).optional(),
+      stage: z.enum(["applied", "no_response", "screen", "interview", "offer", "rejected", "withdrawn"]).optional(),
       next_action: z.string().max(500).nullable().optional(),
       next_action_at: z.string().nullable().optional(),
       notes: z.string().max(5000).nullable().optional(),

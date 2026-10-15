@@ -406,6 +406,7 @@ export type Database = {
     Enums: {
       application_stage:
         | "applied"
+        | "no_response"
         | "screen"
         | "interview"
         | "offer"
@@ -554,6 +555,7 @@ export const Constants = {
     Enums: {
       application_stage: [
         "applied",
+        "no_response",
         "screen",
         "interview",
         "offer",
