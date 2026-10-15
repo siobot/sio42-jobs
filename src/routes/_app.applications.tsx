@@ -27,13 +27,18 @@ import { cn } from "@/lib/utils";
 import { ExternalLink, Plus, Trash2, CalendarIcon, X, Search, Pencil, Download } from "lucide-react";
 import { toast } from "sonner";
 
-type Stage = "applied" | "screen" | "interview" | "offer" | "rejected" | "withdrawn";
-const STAGES: Stage[] = ["applied", "screen", "interview", "offer", "rejected", "withdrawn"];
+type Stage = "applied" | "no_response" | "screen" | "interview" | "offer" | "rejected" | "withdrawn";
+const STAGES: Stage[] = ["applied", "no_response", "screen", "interview", "offer", "rejected", "withdrawn"];
+const STAGE_LABELS: Record<Stage, string> = {
+  applied: "Applied", no_response: "No response", screen: "Screen", interview: "Interview",
+  offer: "Offer", rejected: "Rejected", withdrawn: "Withdrawn",
+};
+const stageLabel = (s: string) => STAGE_LABELS[s as Stage] ?? s;
 
 type RangeKey = "all" | "this_week" | "last_week" | "this_month" | "last_month" | "custom";
 
 const searchSchema = z.object({
-  stage: z.enum(["all", "applied", "screen", "interview", "offer", "rejected", "withdrawn"]).optional().default("all"),
+  stage: z.enum(["all", "applied", "no_response", "screen", "interview", "offer", "rejected", "withdrawn"]).optional().default("all"),
   range: z.enum(["all", "this_week", "last_week", "this_month", "last_month", "custom"]).optional().default("all"),
   from: z.string().optional(),
   to: z.string().optional(),
@@ -114,7 +119,7 @@ function applicationsToCsv(rows: Array<{
   const lines = [header.map(csvCell).join(",")];
   for (const a of rows) {
     lines.push([
-      a.company, a.title, a.stage, dateOnly(a.applied_at), dateOnly(a.lastStageUpdate), a.url ?? "",
+      a.company, a.title, stageLabel(a.stage), dateOnly(a.applied_at), dateOnly(a.lastStageUpdate), a.url ?? "",
       a.linkedin_easy_apply ? "Yes" : "No", a.notes ?? "",
     ].map(csvCell).join(","));
   }
@@ -197,7 +202,7 @@ function ApplicationsPage() {
   }, [apps.data, start, end]);
 
   const counts = useMemo(() => {
-    const c: Record<Stage, number> = { applied: 0, screen: 0, interview: 0, offer: 0, rejected: 0, withdrawn: 0 };
+    const c: Record<Stage, number> = { applied: 0, no_response: 0, screen: 0, interview: 0, offer: 0, rejected: 0, withdrawn: 0 };
     for (const a of inRange) c[a.stage as Stage] = (c[a.stage as Stage] ?? 0) + 1;
     return c;
   }, [inRange]);
@@ -267,6 +272,7 @@ function ApplicationsPage() {
   const stats: Array<{ key: typeof search.stage; label: string; value: number }> = [
     { key: "all", label: "Total", value: total },
     { key: "applied", label: "Applied", value: counts.applied },
+    { key: "no_response", label: "No response", value: counts.no_response },
     { key: "screen", label: "Screen", value: counts.screen },
     { key: "interview", label: "Interview", value: counts.interview },
     { key: "offer", label: "Offer", value: counts.offer },
@@ -376,7 +382,7 @@ function ApplicationsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
         {stats.map((s) => {
           const active = search.stage === s.key;
           return (
@@ -441,7 +447,7 @@ function ApplicationsPage() {
                 <Select value={a.stage} onValueChange={(v) => updM.mutate({ id: a.id, stage: v as Stage })}>
                   <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {STAGES.map((s) => <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Button size="icon" variant="ghost" onClick={() => setEditingId(a.id)} title="Edit"><Pencil className="h-4 w-4" /></Button>
@@ -453,7 +459,7 @@ function ApplicationsPage() {
                   {timeline.map((e, i) => (
                     <span key={e.id} className="inline-flex items-center gap-1">
                       {i > 0 && <span className="opacity-50">→</span>}
-                      <span className="font-medium text-foreground/80 capitalize">{e.stage}</span>
+                      <span className="font-medium text-foreground/80">{stageLabel(e.stage)}</span>
                       <span>· {fmtDateTime(e.changed_at)}</span>
                     </span>
                   ))}
@@ -577,7 +583,7 @@ function EditApplicationDialog({
             <div className="space-y-2">
               {events.map((e) => (
                 <div key={e.id} className="flex items-center gap-2">
-                  <span className="text-xs capitalize w-20 shrink-0">{e.stage}</span>
+                  <span className="text-xs w-24 shrink-0">{stageLabel(e.stage)}</span>
                   <Input
                     type="datetime-local"
                     value={toDatetimeLocal(e.changed_at)}
