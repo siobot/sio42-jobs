@@ -194,7 +194,7 @@ function Dashboard() {
                       ))}
                     </div>
                   </div>
-                  <JobActions jobId={j.id} status={j.status as Status} />
+                  <JobActions jobId={j.id} status={j.status as Status} company={j.company} />
                 </div>
               ))}
               {(interested.data ?? []).length === 0 && (
@@ -219,7 +219,7 @@ function Dashboard() {
                       ))}
                     </div>
                   </div>
-                  <JobActions jobId={j.id} status={j.status as Status} />
+                  <JobActions jobId={j.id} status={j.status as Status} company={j.company} />
                 </div>
               ))}
               {(recent.data ?? []).length === 0 && (

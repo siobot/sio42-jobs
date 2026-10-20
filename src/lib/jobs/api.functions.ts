@@ -256,6 +256,39 @@ export const saveKeywordConfig = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Removes a company from the search: future scans skip it, its job board (if
+// any) is paused, and its unreviewed jobs are marked Not Interested.
+export const excludeCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ company: z.string().trim().min(1).max(200) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const { data: row } = await supabase.from("keyword_config").select("config").maybeSingle();
+    const config = (row?.config as KeywordConfig | undefined) ?? DEFAULT_KEYWORD_CONFIG;
+    const current = config.company_exclude ?? [];
+    if (!current.some((c) => c.toLowerCase() === data.company.toLowerCase())) {
+      const { error } = await supabase.from("keyword_config").upsert({
+        user_id: userId,
+        config: { ...config, company_exclude: [...current, data.company] },
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    const { data: hidden } = await supabase.from("jobs")
+      .update({ status: "dismissed", status_updated_at: new Date().toISOString() })
+      .eq("user_id", userId).eq("company", data.company).eq("status", "new")
+      .select("id");
+    const { data: paused } = await supabase.from("sources")
+      .update({ enabled: false })
+      .eq("user_id", userId).eq("name", data.company).eq("enabled", true)
+      .select("id");
+
+    return { hiddenJobs: hidden?.length ?? 0, pausedSources: paused?.length ?? 0 };
+  });
+
 // Applications
 export const updateApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

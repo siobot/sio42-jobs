@@ -32,6 +32,7 @@ export function filterJobs(jobs: RawJob[], config: KeywordConfig): MatchedJob[] 
     }
   }
   const locationExclude = (config.location_exclude ?? []).map((t) => t.toLowerCase());
+  const companyExclude = new Set((config.company_exclude ?? []).map((c) => c.trim().toLowerCase()));
   const nonEnglish = (config.non_english_markers ?? []).map((t) => t.toLowerCase());
   const remoteOnly = !!config.remote_only;
   const remoteTerms = (config.remote_terms ?? ["remote"]).map((t) => t.toLowerCase());
@@ -41,6 +42,7 @@ export function filterJobs(jobs: RawJob[], config: KeywordConfig): MatchedJob[] 
     const title = (job.title || "").toLowerCase();
     const loc = (job.location || "").toLowerCase();
 
+    if (companyExclude.has((job.company || "").trim().toLowerCase())) continue;
     if (nonEnglish.length && nonEnglish.some((m) => title.includes(m))) continue;
     if (locationExclude.length && locationExclude.some((t) => loc.includes(t))) continue;
     if (remoteOnly) {
