@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteManualCompany, markCompanyChecked, updateManualCompany, updateManualCompanyNotes } from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
@@ -53,7 +53,7 @@ function ChecklistPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
   });
   const updateM = useMutation({
-    mutationFn: (v: { id: string; url: string }) => update({ data: v }),
+    mutationFn: (v: { id: string; name: string; url: string }) => update({ data: v }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
@@ -87,7 +87,7 @@ function ChecklistPage() {
             lastCheckedAt={c.last_checked_at}
             onClickName={() => markM.mutate(c.id)}
             onDeleteRequest={() => setPendingDelete({ id: c.id, name: c.name })}
-            onSaveUrl={(url) => updateM.mutateAsync({ id: c.id, url })}
+            onSave={(v) => updateM.mutateAsync({ id: c.id, ...v })}
             onSaveNotes={(notes) => notesM.mutateAsync({ id: c.id, notes })}
           />
         ))}
@@ -133,28 +133,37 @@ function freshness(lastCheckedAt: string | null) {
 }
 
 function ChecklistRow({
-  id: _id, name, url, notes, lastCheckedAt, onClickName, onDeleteRequest, onSaveUrl, onSaveNotes,
+  id: _id, name, url, notes, lastCheckedAt, onClickName, onDeleteRequest, onSave, onSaveNotes,
 }: {
   id: string; name: string; url: string; notes: string | null; lastCheckedAt: string | null;
   onClickName: () => void; onDeleteRequest: () => void;
-  onSaveUrl: (url: string) => Promise<unknown>; onSaveNotes: (notes: string) => Promise<unknown>;
+  onSave: (v: { name: string; url: string }) => Promise<unknown>; onSaveNotes: (notes: string) => Promise<unknown>;
 }) {
   const rel = useRelativeTime(lastCheckedAt);
   const f = freshness(lastCheckedAt);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(url);
+  const [nameDraft, setNameDraft] = useState(name);
   const [saving, setSaving] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(notes ?? "");
 
-  const startEdit = () => { setDraft(url); setIsEditing(true); };
-  const cancel = () => { setIsEditing(false); setDraft(url); };
+  const startEdit = () => { setNameDraft(name); setDraft(url); setIsEditing(true); };
+  const cancel = () => { setIsEditing(false); setNameDraft(name); setDraft(url); };
   const save = async () => {
-    if (!draft || draft === url) { setIsEditing(false); return; }
+    const nextName = nameDraft.trim();
+    const nextUrl = draft.trim();
+    if (!nextName || !nextUrl) return;
+    if (nextName === name && nextUrl === url) { setIsEditing(false); return; }
     setSaving(true);
-    try { await onSaveUrl(draft); setIsEditing(false); }
+    try { await onSave({ name: nextName, url: nextUrl }); setIsEditing(false); }
     catch { /* toast handled in mutation */ }
     finally { setSaving(false); }
+  };
+
+  const editKeys = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") { e.preventDefault(); save(); }
+    if (e.key === "Escape") { e.preventDefault(); cancel(); }
   };
 
   const startNotes = () => { setNotesDraft(notes ?? ""); setIsEditingNotes(true); };
@@ -171,38 +180,47 @@ function ChecklistRow({
     <div className="p-3 flex items-center gap-4">
       <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${f.dot}`} aria-hidden />
       <div className="flex-1 min-w-0">
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          onClick={onClickName}
-          className="font-medium text-sm hover:underline inline-flex items-center gap-1"
-        >
-          {name}
-          <ExternalLink className="h-3 w-3 text-muted-foreground" />
-        </a>
         {isEditing ? (
-          <div className="mt-1 flex items-center gap-1">
-            <Input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); save(); }
-                if (e.key === "Escape") { e.preventDefault(); cancel(); }
-              }}
-              className="h-7 text-xs"
-              placeholder="https://example.com/careers"
-            />
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={save} disabled={saving}>
+          <div className="flex items-start gap-1">
+            <div className="flex-1 min-w-0 space-y-1">
+              <Input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={editKeys}
+                maxLength={200}
+                className="h-7 text-sm font-medium"
+                aria-label="Company name"
+              />
+              <Input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={editKeys}
+                className="h-7 text-xs"
+                aria-label="Careers page URL"
+              />
+            </div>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={save} disabled={saving} aria-label="Save">
               <Check className="h-4 w-4" />
             </Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancel} disabled={saving}>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancel} disabled={saving} aria-label="Cancel">
               <X className="h-4 w-4" />
             </Button>
           </div>
         ) : (
-          <div className="text-xs text-muted-foreground truncate">{url}</div>
+          <>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={onClickName}
+              className="font-medium text-sm hover:underline inline-flex items-center gap-1"
+            >
+              {name}
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </a>
+            <div className="text-xs text-muted-foreground truncate">{url}</div>
+          </>
         )}
         {isEditingNotes ? (
           <div className="mt-2 space-y-1">
@@ -217,7 +235,6 @@ function ChecklistRow({
               maxLength={2000}
               rows={3}
               className="text-xs"
-              placeholder="e.g. Referral from Sam · only hires in the UK · check again in January"
             />
             <div className="flex gap-1">
               <Button size="sm" className="h-7" onClick={saveNotes} disabled={saving}>Save notes</Button>
@@ -240,7 +257,7 @@ function ChecklistRow({
       <Button size="icon" variant="ghost" onClick={startNotes} aria-label={notes ? "Edit notes" : "Add notes"}>
         <NotebookPen className={`h-4 w-4 ${notes ? "text-primary" : ""}`} />
       </Button>
-      <Button size="icon" variant="ghost" onClick={startEdit} aria-label="Edit URL"><Pencil className="h-4 w-4" /></Button>
+      <Button size="icon" variant="ghost" onClick={startEdit} aria-label="Edit name and URL"><Pencil className="h-4 w-4" /></Button>
       <Button size="icon" variant="ghost" onClick={onDeleteRequest}><Trash2 className="h-4 w-4" /></Button>
     </div>
   );

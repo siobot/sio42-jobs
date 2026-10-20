@@ -142,10 +142,14 @@ export const addManualCompany = createServerFn({ method: "POST" })
 export const updateManualCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ id: z.string().uuid(), url: z.string().url() }).parse(input))
+    z.object({
+      id: z.string().uuid(),
+      url: z.string().url(),
+      name: z.string().trim().min(1).max(200).optional(),
+    }).parse(input))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("manual_companies")
-      .update({ url: data.url })
+      .update(data.name ? { url: data.url, name: data.name } : { url: data.url })
       .eq("id", data.id)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
