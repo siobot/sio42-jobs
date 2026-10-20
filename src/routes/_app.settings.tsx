@@ -9,7 +9,7 @@ import {
 } from "@/lib/jobs/api.functions";
 import { VAPID_PUBLIC_KEY } from "@/lib/push/config";
 import { subscribeToPush, unsubscribeFromPush, getCurrentSubscription } from "@/lib/push/register";
-import { DEFAULT_KEYWORD_CONFIG, type KeywordConfig } from "@/lib/jobs/types";
+import { ATS_TYPES, DEFAULT_KEYWORD_CONFIG, SOURCE_LABELS, type KeywordConfig } from "@/lib/jobs/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,15 +50,7 @@ function SettingsPage() {
   );
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  greenhouse: "Greenhouse",
-  ashby: "Ashby",
-  lever: "Lever",
-  remotive: "Remotive",
-  weworkremotely: "We Work Remotely",
-  workingnomads: "Working Nomads",
-};
-const ATS_TYPES = ["greenhouse", "ashby", "lever"] as const;
+const TYPE_LABELS = SOURCE_LABELS;
 const AGGREGATOR_TYPES = ["remotive", "weworkremotely", "workingnomads"] as const;
 type SourceRow = {
   id: string;
@@ -126,7 +118,7 @@ function SourcesTab() {
 
   const renderRow = (s: SourceRow, isAggregator: boolean) => (
     <div key={s.id} className="p-3 flex items-center gap-3">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground w-20 shrink-0">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground w-24 shrink-0 truncate">
         {TYPE_LABELS[s.type] ?? s.type}
       </span>
       <div className="flex-1 min-w-0">
@@ -189,8 +181,9 @@ function SourcesTab() {
           </p>
         )}
         <p className="text-xs text-muted-foreground">
-          Paste a company's careers page. We'll check if it's on Greenhouse, Ashby, or Lever and add it
-          as an ATS board here — otherwise it's added to the{" "}
+          Paste a company's careers page. We'll check whether it uses a supported job board (Greenhouse,
+          Ashby, Lever, Workable, Workday, Recruitee, Personio, BambooHR, Breezy, Pinpoint,
+          SmartRecruiters, or Teamtailor) and add it here — otherwise it's added to the{" "}
           <a href="/checklist" className="underline">Other Career Pages</a> checklist instead.
           Remote-job aggregators (Remotive, We Work Remotely, Working Nomads) are added
           automatically and listed below.

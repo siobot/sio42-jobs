@@ -8,6 +8,32 @@ export type RawJob = {
   job_date: string;
 };
 
+// Company job boards the scanner can read, each identified by a slug.
+// Workday slugs are "host/site" and Teamtailor slugs are the careers-site host.
+export const ATS_TYPES = [
+  "greenhouse", "ashby", "lever", "workable", "recruitee", "personio",
+  "bamboohr", "breezy", "pinpoint", "smartrecruiters", "teamtailor", "workday",
+] as const;
+export type AtsType = (typeof ATS_TYPES)[number];
+
+export const SOURCE_LABELS: Record<string, string> = {
+  greenhouse: "Greenhouse",
+  ashby: "Ashby",
+  lever: "Lever",
+  workable: "Workable",
+  recruitee: "Recruitee",
+  personio: "Personio",
+  bamboohr: "BambooHR",
+  breezy: "Breezy",
+  pinpoint: "Pinpoint",
+  smartrecruiters: "SmartRecruiters",
+  teamtailor: "Teamtailor",
+  workday: "Workday",
+  remotive: "Remotive",
+  weworkremotely: "We Work Remotely",
+  workingnomads: "Working Nomads",
+};
+
 export type MatchedJob = RawJob & {
   matched_keywords: string[];
   matched_groups: string[];

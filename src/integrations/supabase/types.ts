@@ -426,6 +426,15 @@ export type Database = {
         | "remotive"
         | "weworkremotely"
         | "workingnomads"
+        | "workable"
+        | "recruitee"
+        | "personio"
+        | "bamboohr"
+        | "breezy"
+        | "pinpoint"
+        | "smartrecruiters"
+        | "teamtailor"
+        | "workday"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -577,6 +586,15 @@ export const Constants = {
         "remotive",
         "weworkremotely",
         "workingnomads",
+        "workable",
+        "recruitee",
+        "personio",
+        "bamboohr",
+        "breezy",
+        "pinpoint",
+        "smartrecruiters",
+        "teamtailor",
+        "workday",
       ],
     },
   },
