@@ -309,18 +309,46 @@ export async function fetchWeWorkRemotely(): Promise<RawJob[]> {
   });
 }
 
+// Working Nomads' public /api/exposed_jobs/ feed only carries ~45 jobs posted
+// directly on the site. The site's own search reads this index, which holds
+// every listing, so read the last 30 days from it (a few thousand jobs).
+const WN_PAGE = 1000;
+const WN_MAX_PAGES = 10; // the index refuses offsets past 10,000
+
 export async function fetchWorkingNomads(): Promise<RawJob[]> {
-  const data = await getJson("https://www.workingnomads.com/api/exposed_jobs/") as Array<Record<string, unknown>>;
-  return (data ?? []).map((raw) => {
-    const slug = str(raw.slug);
-    return {
-      external_id: slug ? `wn-${slug}` : `wn-${str(raw.title)}`,
-      source: "workingnomads",
-      company: str(raw.company_name),
-      title: str(raw.title),
-      location: str(raw.location, "Remote"),
-      url: str(raw.url),
-      job_date: str(raw.pub_date).slice(0, 10),
-    };
-  });
+  type Hit = { _source?: Record<string, unknown> };
+  type Page = { hits?: { total?: { value?: number }; hits?: Hit[] } };
+  const page = (from: number) => getJson("https://www.workingnomads.com/jobsapi/_search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      size: WN_PAGE,
+      _source: ["id", "title", "slug", "company", "locations", "location_base", "pub_date", "expired"],
+      sort: [{ pub_date: { order: "desc" } }],
+      query: { bool: { filter: [{ range: { pub_date: { gte: "now-30d" } } }] } },
+    }),
+  }) as Promise<Page>;
+
+  const first = await page(0);
+  const pages = Math.min(Math.ceil((first.hits?.total?.value ?? 0) / WN_PAGE), WN_MAX_PAGES);
+  const rest = await Promise.all(Array.from({ length: Math.max(pages - 1, 0) }, (_, i) => page((i + 1) * WN_PAGE)));
+
+  return [first, ...rest]
+    .flatMap((p) => p.hits?.hits ?? [])
+    .map((h) => h._source ?? {})
+    .filter((raw) => raw.expired !== true)
+    .map((raw) => {
+      const slug = str(raw.slug);
+      const locations = Array.isArray(raw.locations) ? raw.locations.map((l) => str(l)) : [];
+      return {
+        external_id: slug ? `wn-${slug}` : `wn-${str(raw.id)}`,
+        source: "workingnomads",
+        company: str(raw.company),
+        title: str(raw.title),
+        location: joinLoc(raw.location_base, ...locations) || "Remote",
+        url: `https://www.workingnomads.com/jobs/${slug}`,
+        job_date: str(raw.pub_date).slice(0, 10),
+      };
+    });
 }
