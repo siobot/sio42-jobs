@@ -132,6 +132,7 @@ export function NotificationBell() {
                   onClick={() => {
                     if (!n.read_at) markReadM.mutate(n.id);
                     if (n.kind === "scan_complete") navigate({ to: "/jobs" });
+                    else if (n.kind === "scan_errors" || n.kind === "scan_failed") navigate({ to: "/history" });
                   }}
                 >
                   <div className="text-sm font-medium truncate">{n.title}</div>
