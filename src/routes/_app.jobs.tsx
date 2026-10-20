@@ -59,7 +59,6 @@ function JobsPage() {
     { key: "new", label: "New" },
     { key: "interested", label: "Interested" },
     { key: "dismissed", label: "Dismissed" },
-    { key: "archived", label: "Archived" },
     { key: "all", label: "All" },
   ];
 
@@ -119,7 +118,7 @@ function JobsPage() {
               </div>
             </div>
             <div className="shrink-0">
-              <JobActions jobId={j.id} status={j.status as Status} />
+              <JobActions jobId={j.id} status={j.status as Status} company={j.company} />
             </div>
           </div>
         ))}

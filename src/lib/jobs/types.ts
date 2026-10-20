@@ -46,6 +46,9 @@ export type KeywordConfig = {
   remote_only: boolean;
   remote_terms: string[];
   location_exclude: string[];
+  // Company names (exact, case-insensitive) never to show. Optional because
+  // configs saved before this setting existed don't have it.
+  company_exclude?: string[];
 };
 
 export const DEFAULT_KEYWORD_CONFIG: KeywordConfig = {
