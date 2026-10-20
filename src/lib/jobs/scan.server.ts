@@ -1,11 +1,8 @@
 // Server-only scan orchestrator. Import only from .server.ts modules or inside handlers.
 import { SupabaseClient } from "@supabase/supabase-js";
-import {
-  fetchAshby, fetchGreenhouse, fetchLever,
-  fetchRemotive, fetchWeWorkRemotely, fetchWorkingNomads,
-} from "./sources";
+import { fetchAts, fetchRemotive, fetchWeWorkRemotely, fetchWorkingNomads } from "./sources";
 import { filterJobs } from "./filters";
-import { DEFAULT_KEYWORD_CONFIG, type KeywordConfig, type RawJob } from "./types";
+import { ATS_TYPES, DEFAULT_KEYWORD_CONFIG, type AtsType, type KeywordConfig, type RawJob } from "./types";
 
 export type ScanResult = {
   runId: string;
@@ -52,10 +49,9 @@ export async function runScanForUser(
   for (const s of sourceRows ?? []) {
     const label = `${s.type}/${s.name}`;
     const sourceId = s.id as string;
-    if (s.type === "greenhouse") tasks.push({ label, sourceId, run: () => fetchGreenhouse(s.slug, s.name) });
-    else if (s.type === "ashby") tasks.push({ label, sourceId, run: () => fetchAshby(s.slug, s.name) });
-    else if (s.type === "lever") tasks.push({ label, sourceId, run: () => fetchLever(s.slug, s.name) });
-    else if (s.type === "remotive") tasks.push({ label, sourceId, run: () => fetchRemotive() });
+    if ((ATS_TYPES as readonly string[]).includes(s.type)) {
+      tasks.push({ label, sourceId, run: () => fetchAts(s.type as AtsType, s.slug, s.name) });
+    } else if (s.type === "remotive") tasks.push({ label, sourceId, run: () => fetchRemotive() });
     else if (s.type === "weworkremotely") tasks.push({ label, sourceId, run: () => fetchWeWorkRemotely() });
     else if (s.type === "workingnomads") tasks.push({ label, sourceId, run: () => fetchWorkingNomads() });
   }

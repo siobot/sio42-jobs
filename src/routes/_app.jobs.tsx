@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { ExternalLink } from "lucide-react";
 import { JobActions } from "@/components/job-actions";
+import { SOURCE_LABELS } from "@/lib/jobs/types";
 
 
 const searchSchema = z.object({
@@ -86,12 +87,9 @@ function JobsPage() {
             <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All sources</SelectItem>
-              <SelectItem value="greenhouse">Greenhouse</SelectItem>
-              <SelectItem value="ashby">Ashby</SelectItem>
-              <SelectItem value="lever">Lever</SelectItem>
-              <SelectItem value="remotive">Remotive</SelectItem>
-              <SelectItem value="weworkremotely">WeWorkRemotely</SelectItem>
-              <SelectItem value="workingnomads">WorkingNomads</SelectItem>
+              {Object.entries(SOURCE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

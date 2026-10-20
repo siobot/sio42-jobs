@@ -2,11 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_KEYWORD_CONFIG, DEFAULT_LEVER, DEFAULT_MANUAL,
+  ATS_TYPES, DEFAULT_ASHBY, DEFAULT_GREENHOUSE, DEFAULT_KEYWORD_CONFIG, DEFAULT_LEVER, DEFAULT_MANUAL,
   type KeywordConfig,
 } from "./types";
-import { parseAtsFromUrl, fetchPageTitle, cleanCompanyNameFromTitle } from "./detect";
-import { fetchGreenhouse, fetchAshby, fetchLever } from "./sources";
+import { parseAtsFromUrl, findAtsInHtml, fetchPageHtml, pageTitle, cleanCompanyNameFromTitle } from "./detect";
+import { fetchAts } from "./sources";
 
 // Manual scan
 export const runScan = createServerFn({ method: "POST" })
@@ -171,32 +171,34 @@ export const detectAndAddCompany = createServerFn({ method: "POST" })
     }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const parsed = parseAtsFromUrl(data.url);
+    const html = await fetchPageHtml(data.url);
+    const name = data.name ?? cleanCompanyNameFromTitle((html && pageTitle(html)) ?? "") ?? undefined;
 
-    if (parsed) {
+    // The URL itself may be the job board; otherwise look for one linked or
+    // embedded in the careers page.
+    const direct = parseAtsFromUrl(data.url);
+    const candidates = [...(direct ? [direct] : []), ...(html ? findAtsInHtml(html) : [])];
+
+    for (const parsed of candidates.slice(0, 5)) {
       try {
-        if (parsed.type === "greenhouse") await fetchGreenhouse(parsed.slug, "");
-        else if (parsed.type === "ashby") await fetchAshby(parsed.slug, "");
-        else await fetchLever(parsed.slug, "");
-
-        const name = data.name ?? cleanCompanyNameFromTitle((await fetchPageTitle(data.url)) ?? "") ?? undefined;
-        if (!name) return { status: "needs_name" as const };
-
-        const { data: existing } = await supabase.from("sources")
-          .select("id").eq("user_id", userId).eq("type", parsed.type).eq("slug", parsed.slug).maybeSingle();
-        if (existing) return { status: "already_added" as const, name, type: parsed.type as string };
-
-        const { error } = await supabase.from("sources")
-          .insert({ user_id: userId, type: parsed.type, slug: parsed.slug, name });
-        if (error) throw new Error(error.message);
-        return { status: "added_ats" as const, name, type: parsed.type as string };
+        await fetchAts(parsed.type, parsed.slug, "");
       } catch {
-        // Matched a known ATS domain but the board didn't resolve (bad/removed slug) —
-        // fall through and file it under the manual checklist instead.
+        // Matched a known ATS domain but the board didn't resolve (bad/removed slug).
+        continue;
       }
+      if (!name) return { status: "needs_name" as const };
+
+      const { data: existing } = await supabase.from("sources")
+        .select("id").eq("user_id", userId).eq("type", parsed.type).ilike("slug", parsed.slug).maybeSingle();
+      if (existing) return { status: "already_added" as const, name, type: parsed.type as string };
+
+      const { error } = await supabase.from("sources")
+        .insert({ user_id: userId, type: parsed.type, slug: parsed.slug, name });
+      if (error) throw new Error(error.message);
+      return { status: "added_ats" as const, name, type: parsed.type as string };
     }
 
-    const name = data.name ?? cleanCompanyNameFromTitle((await fetchPageTitle(data.url)) ?? "") ?? undefined;
+    // No working job board found — file it under the manual checklist instead.
     if (!name) return { status: "needs_name" as const };
 
     const { data: existingManual } = await supabase.from("manual_companies")
@@ -214,7 +216,7 @@ export const addSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({
-      type: z.enum(["greenhouse", "ashby", "lever"]),
+      type: z.enum(ATS_TYPES),
       slug: z.string().min(1).max(100),
       name: z.string().min(1).max(200),
     }).parse(input))
