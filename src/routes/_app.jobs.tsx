@@ -59,7 +59,6 @@ function JobsPage() {
     { key: "new", label: "New" },
     { key: "interested", label: "Interested" },
     { key: "dismissed", label: "Dismissed" },
-    { key: "archived", label: "Archived" },
     { key: "all", label: "All" },
   ];
 

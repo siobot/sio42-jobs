@@ -71,15 +71,6 @@ export function JobActions({ jobId, status, company }: JobActionsProps) {
       {btn("interested", "Interested")}
       {btn("applied", "Applied")}
       {btn("dismissed", "Not Interested")}
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => handle("archived")}
-        disabled={busy}
-        className="text-muted-foreground"
-      >
-        {status === "archived" ? "Unarchive" : "Archive"}
-      </Button>
       {company && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
