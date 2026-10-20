@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { deleteManualCompany, markCompanyChecked, updateManualCompany } from "@/lib/jobs/api.functions";
+import { deleteManualCompany, markCompanyChecked, updateManualCompany, updateManualCompanyNotes } from "@/lib/jobs/api.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { toast } from "sonner";
 import {
@@ -19,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, ExternalLink, Pencil, Trash2, X } from "lucide-react";
+import { Check, ExternalLink, NotebookPen, Pencil, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/checklist")({
   head: () => ({ meta: [{ title: "Other Career Pages — Job Monitor" }] }),
@@ -31,12 +32,13 @@ function ChecklistPage() {
   const mark = useServerFn(markCompanyChecked);
   const del = useServerFn(deleteManualCompany);
   const update = useServerFn(updateManualCompany);
+  const updateNotes = useServerFn(updateManualCompanyNotes);
 
   const list = useQuery({
     queryKey: ["manual-companies"],
     queryFn: async () => {
       const { data } = await supabase.from("manual_companies")
-        .select("id, name, url, last_checked_at")
+        .select("id, name, url, notes, last_checked_at")
         .order("name", { ascending: true });
       return data ?? [];
     },
@@ -54,6 +56,11 @@ function ChecklistPage() {
     mutationFn: (v: { id: string; url: string }) => update({ data: v }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+  });
+  const notesM = useMutation({
+    mutationFn: (v: { id: string; notes: string }) => updateNotes({ data: v }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["manual-companies"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save notes"),
   });
 
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
@@ -76,10 +83,12 @@ function ChecklistPage() {
             id={c.id}
             name={c.name}
             url={c.url}
+            notes={c.notes}
             lastCheckedAt={c.last_checked_at}
             onClickName={() => markM.mutate(c.id)}
             onDeleteRequest={() => setPendingDelete({ id: c.id, name: c.name })}
             onSaveUrl={(url) => updateM.mutateAsync({ id: c.id, url })}
+            onSaveNotes={(notes) => notesM.mutateAsync({ id: c.id, notes })}
           />
         ))}
         {(list.data ?? []).length === 0 && (
@@ -124,13 +133,19 @@ function freshness(lastCheckedAt: string | null) {
 }
 
 function ChecklistRow({
-  id: _id, name, url, lastCheckedAt, onClickName, onDeleteRequest, onSaveUrl,
-}: { id: string; name: string; url: string; lastCheckedAt: string | null; onClickName: () => void; onDeleteRequest: () => void; onSaveUrl: (url: string) => Promise<unknown> }) {
+  id: _id, name, url, notes, lastCheckedAt, onClickName, onDeleteRequest, onSaveUrl, onSaveNotes,
+}: {
+  id: string; name: string; url: string; notes: string | null; lastCheckedAt: string | null;
+  onClickName: () => void; onDeleteRequest: () => void;
+  onSaveUrl: (url: string) => Promise<unknown>; onSaveNotes: (notes: string) => Promise<unknown>;
+}) {
   const rel = useRelativeTime(lastCheckedAt);
   const f = freshness(lastCheckedAt);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(url);
   const [saving, setSaving] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(notes ?? "");
 
   const startEdit = () => { setDraft(url); setIsEditing(true); };
   const cancel = () => { setIsEditing(false); setDraft(url); };
@@ -138,6 +153,16 @@ function ChecklistRow({
     if (!draft || draft === url) { setIsEditing(false); return; }
     setSaving(true);
     try { await onSaveUrl(draft); setIsEditing(false); }
+    catch { /* toast handled in mutation */ }
+    finally { setSaving(false); }
+  };
+
+  const startNotes = () => { setNotesDraft(notes ?? ""); setIsEditingNotes(true); };
+  const cancelNotes = () => { setIsEditingNotes(false); setNotesDraft(notes ?? ""); };
+  const saveNotes = async () => {
+    if (notesDraft.trim() === (notes ?? "")) { setIsEditingNotes(false); return; }
+    setSaving(true);
+    try { await onSaveNotes(notesDraft); setIsEditingNotes(false); }
     catch { /* toast handled in mutation */ }
     finally { setSaving(false); }
   };
@@ -179,10 +204,42 @@ function ChecklistRow({
         ) : (
           <div className="text-xs text-muted-foreground truncate">{url}</div>
         )}
+        {isEditingNotes ? (
+          <div className="mt-2 space-y-1">
+            <Textarea
+              autoFocus
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveNotes(); }
+                if (e.key === "Escape") { e.preventDefault(); cancelNotes(); }
+              }}
+              maxLength={2000}
+              rows={3}
+              className="text-xs"
+              placeholder="e.g. Referral from Sam · only hires in the UK · check again in January"
+            />
+            <div className="flex gap-1">
+              <Button size="sm" className="h-7" onClick={saveNotes} disabled={saving}>Save notes</Button>
+              <Button size="sm" variant="ghost" className="h-7" onClick={cancelNotes} disabled={saving}>Cancel</Button>
+            </div>
+          </div>
+        ) : notes ? (
+          <button
+            type="button"
+            onClick={startNotes}
+            className="mt-1 block w-full text-left text-xs text-foreground/80 whitespace-pre-wrap break-words hover:underline"
+          >
+            {notes}
+          </button>
+        ) : null}
       </div>
       <div className={`text-xs tabular-nums w-32 text-right ${f.text}`}>
         {lastCheckedAt ? `Checked ${rel}` : "Never checked"}
       </div>
+      <Button size="icon" variant="ghost" onClick={startNotes} aria-label={notes ? "Edit notes" : "Add notes"}>
+        <NotebookPen className={`h-4 w-4 ${notes ? "text-primary" : ""}`} />
+      </Button>
       <Button size="icon" variant="ghost" onClick={startEdit} aria-label="Edit URL"><Pencil className="h-4 w-4" /></Button>
       <Button size="icon" variant="ghost" onClick={onDeleteRequest}><Trash2 className="h-4 w-4" /></Button>
     </div>
