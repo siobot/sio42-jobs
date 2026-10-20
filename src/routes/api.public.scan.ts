@@ -72,7 +72,14 @@ export const Route = createFileRoute("/api/public/scan")({
               }
             }
           } catch (e) {
-            results.push({ userId, error: e instanceof Error ? e.message : String(e) });
+            const message = e instanceof Error ? e.message : String(e);
+            results.push({ userId, error: message });
+            try {
+              const { alertScanFailed } = await import("@/lib/jobs/alerts.server");
+              await alertScanFailed(userId, message);
+            } catch (alertErr) {
+              console.warn("Scan failure alert failed:", alertErr instanceof Error ? alertErr.message : alertErr);
+            }
           } finally {
             const now = new Date();
             const next = computeNextRun(frequency, { from: now, runAtLocal, timezone });

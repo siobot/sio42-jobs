@@ -149,5 +149,12 @@ export async function runScanForUser(
     new_count: newCount,
   }).eq("id", runId);
 
+  try {
+    const { alertNewScanErrors } = await import("./alerts.server");
+    await alertNewScanErrors(userId, runId, errors);
+  } catch (e) {
+    console.warn("Scan error alert failed:", e instanceof Error ? e.message : e);
+  }
+
   return { runId, fetched: all.length, matched: matched.length, newCount, sourceCounts, errors };
 }
