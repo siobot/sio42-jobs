@@ -10,7 +10,6 @@ import { useAuthSession } from "@/hooks/use-auth-session";
 import { useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createDemoAccount } from "@/lib/demo.functions";
-import { Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — Job Monitor" }] }),
@@ -118,7 +117,6 @@ function AuthPage() {
           disabled={busy || demoBusy}
           onClick={tryDemo}
         >
-          <Sparkles className="h-5 w-5 mr-2" />
           {demoBusy ? "Setting up demo..." : "Try the demo"}
         </Button>
         <p className="text-xs text-muted-foreground mt-2 text-center">
