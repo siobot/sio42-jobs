@@ -1,4 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+
+// The visitor's country as Netlify detects it, for demo usage stats. Netlify
+// sends it base64-encoded in x-nf-geo; x-country and Cloudflare's
+// cf-ipcountry are fallbacks for other hosts.
+function visitorCountry(): { country?: string; country_name?: string } {
+  try {
+    const headers = getRequest().headers;
+    const geo = headers.get("x-nf-geo");
+    if (geo) {
+      let parsed: { country?: { code?: string; name?: string } };
+      try { parsed = JSON.parse(atob(geo)); } catch { parsed = JSON.parse(geo); }
+      if (parsed.country?.code) return { country: parsed.country.code, country_name: parsed.country.name };
+    }
+    const code = headers.get("x-country") ?? headers.get("cf-ipcountry");
+    return code ? { country: code } : {};
+  } catch {
+    return {};
+  }
+}
 
 // A fresh, isolated demo account per "Try the demo" click — no shared state
 // or lookup/reuse logic, so no risk of colliding with another visitor or
@@ -20,7 +40,7 @@ export const createDemoAccount = createServerFn({ method: "POST" })
       email,
       password,
       email_confirm: true,
-      user_metadata: { is_demo: true },
+      user_metadata: { is_demo: true, ...visitorCountry() },
     });
     if (createErr || !created.user) {
       throw new Error(createErr?.message ?? "Failed to create demo account");
