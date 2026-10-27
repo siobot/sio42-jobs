@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRelativeTime } from "@/hooks/use-relative-time";
-import { RefreshCw, Search, Sparkles, ExternalLink, Check, X, Loader2 } from "lucide-react";
+import { RefreshCw, Sparkles, Check, X, Loader2 } from "lucide-react";
 import { JobActions } from "@/components/job-actions";
 import { ProductTour } from "@/components/product-tour";
 
@@ -296,14 +296,13 @@ function Dashboard() {
             </div>
           </Card>
 
-          {/* Discovered companies */}
+          {/* Discovered */}
           {discoveredItems.length > 0 && (
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <h2 className="text-sm font-medium">Discovered</h2>
-                  <Badge variant="secondary" className="text-[10px]">{discoveredItems.length}</Badge>
                 </div>
                 <Button
                   size="sm" variant="ghost"
@@ -316,52 +315,32 @@ function Dashboard() {
                 </Button>
               </div>
               <div className="divide-y divide-border">
-                {discoveredItems.map((s) => {
+                {discoveredItems.flatMap((s) => {
                   const suggestion = s as unknown as { id: string; ats_type: string; slug: string; company_name: string; matching_roles: Array<{ title: string; url: string; location: string }> };
                   const roles = suggestion.matching_roles ?? [];
-                  return (
-                    <div key={suggestion.id} className="py-3 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm font-medium">{suggestion.company_name || suggestion.slug}</span>
-                          <Badge variant="outline" className="text-[10px] shrink-0">{suggestion.ats_type}</Badge>
-                        </div>
-                        <div className="flex gap-1.5 shrink-0">
-                          <Button
-                            size="sm"
-                            onClick={() => approveM.mutate(suggestion.id)}
-                            disabled={approveM.isPending || dismissM.isPending}
-                          >
-                            <Check className="h-3.5 w-3.5 mr-1" /> Track company
-                          </Button>
-                          <Button
-                            size="sm" variant="ghost"
-                            onClick={() => dismissM.mutate(suggestion.id)}
-                            disabled={approveM.isPending || dismissM.isPending}
-                            className="text-muted-foreground"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
+                  const company = suggestion.company_name || suggestion.slug;
+                  const busy = approveM.isPending || dismissM.isPending;
+                  return roles.map((role, i) => (
+                    <div key={`${suggestion.id}-${i}`} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <a href={role.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium hover:underline truncate block">
+                          {role.title}
+                        </a>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {company} · {suggestion.ats_type}
+                          {role.location && <span className="ml-1">· {role.location}</span>}
                         </div>
                       </div>
-                      <div className="space-y-1 pl-0.5">
-                        {roles.slice(0, 3).map((role, i) => (
-                          <div key={i} className="flex items-center gap-2 text-xs">
-                            <a href={role.url} target="_blank" rel="noopener noreferrer" className="font-medium truncate flex-1 hover:underline">
-                              {role.title}
-                            </a>
-                            {role.location && (
-                              <span className="text-muted-foreground shrink-0">{role.location}</span>
-                            )}
-                            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
-                          </div>
-                        ))}
-                        {roles.length > 3 && (
-                          <span className="text-xs text-muted-foreground">+ {roles.length - 3} more roles</span>
-                        )}
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button size="sm" onClick={() => approveM.mutate(suggestion.id)} disabled={busy}>
+                          <Check className="h-3.5 w-3.5 mr-1" /> Track company
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => dismissM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
+                          Not interested
+                        </Button>
                       </div>
                     </div>
-                  );
+                  ));
                 })}
               </div>
             </Card>
