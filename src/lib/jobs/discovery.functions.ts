@@ -36,13 +36,26 @@ export const saveDiscoveryConfig = createServerFn({ method: "POST" })
 export const listDiscoverySuggestions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase
-      .from("discovery_suggestions")
-      .select("*")
-      .eq("user_id", context.userId)
-      .eq("status", "pending")
-      .order("discovered_at", { ascending: false });
-    return data ?? [];
+    const [{ data }, { data: importedJobs }] = await Promise.all([
+      context.supabase
+        .from("discovery_suggestions")
+        .select("*")
+        .eq("user_id", context.userId)
+        .eq("status", "pending")
+        .order("discovered_at", { ascending: false }),
+      context.supabase
+        .from("jobs")
+        .select("external_id")
+        .eq("user_id", context.userId)
+        .like("external_id", "discovered:%"),
+    ]);
+    const importedUrls = new Set(
+      (importedJobs ?? []).map((j: { external_id: string }) => j.external_id.replace("discovered:", "")),
+    );
+    return (data ?? []).map((s) => {
+      const roles = (s.matching_roles ?? []) as Array<{ title: string; url: string; location: string }>;
+      return { ...s, matching_roles: roles.filter((r) => !importedUrls.has(r.url)) };
+    }).filter((s) => (s.matching_roles as unknown[]).length > 0);
   });
 
 export const approveSuggestion = createServerFn({ method: "POST" })
