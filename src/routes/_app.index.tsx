@@ -199,11 +199,13 @@ function Dashboard() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss all failed"),
   });
 
+  const [actionedUrls, setActionedUrls] = useState<Set<string>>(new Set());
   const importJobFn = useServerFn(importDiscoveredJob);
   const importJobM = useMutation({
     mutationFn: (data: { title: string; url: string; company: string; location: string; ats_type: string; status: "interested" | "applied" | "dismissed" }) =>
       importJobFn({ data }),
     onSuccess: (_r, vars) => {
+      setActionedUrls((prev) => new Set(prev).add(vars.url));
       qc.invalidateQueries({ queryKey: ["dashboard-recent"] });
       qc.invalidateQueries({ queryKey: ["dashboard-interested"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
@@ -311,7 +313,10 @@ function Dashboard() {
           </Card>
 
           {/* Discovered */}
-          {discoveredItems.length > 0 && (
+          {discoveredItems.some((s) => {
+            const suggestion = s as unknown as { matching_roles: Array<{ url: string }> };
+            return (suggestion.matching_roles ?? []).some((r) => !actionedUrls.has(r.url));
+          }) && (
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -331,9 +336,10 @@ function Dashboard() {
               <div className="divide-y divide-border">
                 {discoveredItems.flatMap((s) => {
                   const suggestion = s as unknown as { id: string; ats_type: string; slug: string; company_name: string; matching_roles: Array<{ title: string; url: string; location: string }> };
-                  const roles = suggestion.matching_roles ?? [];
+                  const roles = (suggestion.matching_roles ?? []).filter((r) => !actionedUrls.has(r.url));
                   const company = suggestion.company_name || suggestion.slug;
                   const busy = approveM.isPending || dismissM.isPending;
+                  if (roles.length === 0) return [];
                   return roles.map((role, i) => (
                     <div key={`${suggestion.id}-${i}`} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                       <div className="min-w-0 flex-1">
