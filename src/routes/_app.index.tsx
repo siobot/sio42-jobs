@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { runScan, setJobStatus } from "@/lib/jobs/api.functions";
 import {
   listDiscoverySuggestions, approveSuggestion, dismissSuggestion,
-  dismissAllSuggestions, triggerDiscovery, getDiscoveryStats,
+  dismissAllSuggestions, triggerDiscovery, importDiscoveredJob,
 } from "@/lib/jobs/discovery.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -199,6 +199,20 @@ function Dashboard() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss all failed"),
   });
 
+  const importJobFn = useServerFn(importDiscoveredJob);
+  const importJobM = useMutation({
+    mutationFn: (data: { title: string; url: string; company: string; location: string; ats_type: string; status: "interested" | "applied" | "dismissed" }) =>
+      importJobFn({ data }),
+    onSuccess: (_r, vars) => {
+      qc.invalidateQueries({ queryKey: ["dashboard-recent"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-interested"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      const label = vars.status === "interested" ? "Marked interested" : vars.status === "applied" ? "Added to applications" : "Marked not interested";
+      toast.success(label);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed"),
+  });
+
   const discoveredItems = suggestions.data ?? [];
 
   const lastRunRel = useRelativeTime(stats.data?.latestRun?.finished_at ?? stats.data?.latestRun?.started_at);
@@ -332,9 +346,15 @@ function Dashboard() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        <Button size="sm" variant="outline" disabled={busy}>Interested</Button>
-                        <Button size="sm" variant="outline" disabled={busy}>Applied</Button>
-                        <Button size="sm" variant="outline" onClick={() => dismissM.mutate(suggestion.id)} disabled={busy}>Not Interested</Button>
+                        <Button size="sm" variant="outline" disabled={busy}
+                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, status: "interested" })}
+                        >Interested</Button>
+                        <Button size="sm" variant="outline" disabled={busy}
+                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, status: "applied" })}
+                        >Applied</Button>
+                        <Button size="sm" variant="outline" disabled={busy}
+                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, status: "dismissed" })}
+                        >Not Interested</Button>
                         <Button size="sm" variant="ghost" onClick={() => approveM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
                           Track company
                         </Button>

@@ -85,6 +85,48 @@ export const dismissSuggestion = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const importDiscoveredJob = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({
+      title: z.string(),
+      url: z.string(),
+      company: z.string(),
+      location: z.string().default(""),
+      ats_type: z.string(),
+      status: z.enum(["interested", "applied", "dismissed"]),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const externalId = `discovered:${data.url}`;
+    const { data: existing } = await context.supabase
+      .from("jobs")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("external_id", externalId)
+      .maybeSingle();
+
+    if (existing) {
+      await context.supabase.from("jobs")
+        .update({ status: data.status, status_updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      return { ok: true, jobId: existing.id };
+    }
+
+    const { data: row, error } = await context.supabase.from("jobs").insert({
+      user_id: context.userId,
+      external_id: externalId,
+      source: data.ats_type,
+      company: data.company,
+      title: data.title,
+      location: data.location,
+      url: data.url,
+      status: data.status,
+      matched_groups: ["discovered"],
+    }).select("id").single();
+    if (error) throw new Error(error.message);
+    return { ok: true, jobId: row.id };
+  });
+
 export const dismissAllSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
