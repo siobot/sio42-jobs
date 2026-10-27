@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRelativeTime } from "@/hooks/use-relative-time";
-import { RefreshCw, Sparkles, Check, X, Loader2 } from "lucide-react";
+import { RefreshCw, Sparkles, X, Loader2 } from "lucide-react";
 import { JobActions } from "@/components/job-actions";
 import { ProductTour } from "@/components/product-tour";
 
@@ -332,11 +332,11 @@ function Dashboard() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        <Button size="sm" onClick={() => approveM.mutate(suggestion.id)} disabled={busy}>
-                          <Check className="h-3.5 w-3.5 mr-1" /> Track company
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => dismissM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
-                          Not interested
+                        <Button size="sm" variant="outline" disabled={busy}>Interested</Button>
+                        <Button size="sm" variant="outline" disabled={busy}>Applied</Button>
+                        <Button size="sm" variant="outline" onClick={() => dismissM.mutate(suggestion.id)} disabled={busy}>Not Interested</Button>
+                        <Button size="sm" variant="ghost" onClick={() => approveM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
+                          Track company
                         </Button>
                       </div>
                     </div>
