@@ -27,7 +27,6 @@ async function fetchFantasticJobs(
   apiKey: string,
   keyword: string,
   timeFrame: string,
-  locationInclude: string[],
 ): Promise<FantasticJob[]> {
   const allJobs: FantasticJob[] = [];
   let offset = 0;
@@ -43,10 +42,6 @@ async function fetchFantasticJobs(
       limit: String(limit),
       offset: String(offset),
     });
-
-    if (locationInclude.length > 0) {
-      params.set("location", locationInclude.join(","));
-    }
 
     const res = await fetch(`${FANTASTIC_JOBS_URL}?${params}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -122,12 +117,14 @@ function filterRolesByKeywords(
   exclusions: string[],
   exceptions: string[],
   locationExclude: string[],
+  locationInclude: string[],
   nonEnglishMarkers: string[],
 ): Array<{ title: string; url: string; location: string }> {
   const kwLower = keywords.map((k) => k.toLowerCase());
   const exLower = exclusions.map((e) => e.toLowerCase());
   const excLower = exceptions.map((e) => e.toLowerCase());
   const locExLower = locationExclude.map((l) => l.toLowerCase());
+  const locInLower = locationInclude.map((l) => l.toLowerCase());
   const neLower = nonEnglishMarkers.map((m) => m.toLowerCase());
 
   return roles.filter((role) => {
@@ -136,6 +133,7 @@ function filterRolesByKeywords(
 
     if (neLower.some((m) => title.includes(m))) return false;
     if (locExLower.some((l) => loc.includes(l))) return false;
+    if (locInLower.length > 0 && !locInLower.some((l) => loc.includes(l))) return false;
     if (!kwLower.some((kw) => title.includes(kw))) return false;
     if (exLower.some((e) => title.includes(e)) && !excLower.some((e) => title.includes(e))) return false;
 
@@ -202,7 +200,7 @@ async function runDiscoveryForUser(
 
   for (const keyword of keywords) {
     try {
-      const jobs = await fetchFantasticJobs(apiKey, keyword, timeFrame, locationInclude);
+      const jobs = await fetchFantasticJobs(apiKey, keyword, timeFrame);
       allJobs.push(...jobs);
     } catch (e) {
       errors.push({
@@ -256,7 +254,7 @@ async function runDiscoveryForUser(
   for (const company of companyMap.values()) {
     const matched = filterKeywords.length > 0
       ? filterRolesByKeywords(
-          company.roles, filterKeywords, exclusions, exceptions, locationExclude, nonEnglishMarkers,
+          company.roles, filterKeywords, exclusions, exceptions, locationExclude, locationInclude, nonEnglishMarkers,
         )
       : company.roles;
 

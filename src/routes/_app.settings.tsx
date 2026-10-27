@@ -229,6 +229,13 @@ function SourcesTab() {
   );
 }
 
+const EU_COUNTRIES = [
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic", "Czechia",
+  "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Ireland",
+  "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands", "Poland",
+  "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden",
+];
+
 function FiltersTab() {
   const qc = useQueryClient();
   const save = useServerFn(saveKeywordConfig);
@@ -460,14 +467,15 @@ function FiltersTab() {
         />
       </Card>
 
-      {/* Search locations (for Discovery API) */}
+      {/* Search locations (for Discovery) */}
       <Card className="p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Globe className="h-5 w-5 text-[color:var(--jewel-emerald)]" />
           <div>
             <div className="text-sm font-medium">Search locations</div>
             <div className="text-xs text-muted-foreground">
-              Only discover jobs in these locations. Leave empty to search all locations.
+              Only discover jobs whose location matches one of these. Use country names so they match
+              city-level locations like &ldquo;Berlin, Germany&rdquo;. Leave empty to search all locations.
             </div>
           </div>
         </div>
@@ -475,8 +483,40 @@ function FiltersTab() {
           values={draft.location_include ?? []}
           onChange={(next) => update({ location_include: next })}
           tone="emerald"
-          placeholder='e.g. Europe, United Kingdom'
+          placeholder='e.g. Germany, Ireland'
         />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button" size="sm" variant="outline"
+            onClick={() => {
+              const current = new Set(draft.location_include ?? []);
+              for (const c of EU_COUNTRIES) current.add(c);
+              update({ location_include: [...current] });
+            }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> EU countries
+          </Button>
+          <Button
+            type="button" size="sm" variant="outline"
+            onClick={() => {
+              const current = new Set(draft.location_include ?? []);
+              current.add("United Kingdom");
+              update({ location_include: [...current] });
+            }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> United Kingdom
+          </Button>
+          <Button
+            type="button" size="sm" variant="outline"
+            onClick={() => {
+              const current = new Set(draft.location_include ?? []);
+              current.add("Switzerland");
+              update({ location_include: [...current] });
+            }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> Switzerland
+          </Button>
+        </div>
       </Card>
 
       {/* Company excludes */}
