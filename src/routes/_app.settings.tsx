@@ -7,6 +7,7 @@ import {
   detectAndAddCompany, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
   getSchedule, saveSchedule, savePushSubscription, deletePushSubscription, hasPushSubscription,
 } from "@/lib/jobs/api.functions";
+import { getDiscoveryConfig, saveDiscoveryConfig } from "@/lib/jobs/discovery.functions";
 import { VAPID_PUBLIC_KEY } from "@/lib/push/config";
 import { subscribeToPush, unsubscribeFromPush, getCurrentSubscription } from "@/lib/push/register";
 import { ATS_TYPES, DEFAULT_KEYWORD_CONFIG, SOURCE_LABELS, type KeywordConfig } from "@/lib/jobs/types";
@@ -36,8 +37,8 @@ function SettingsPage() {
       <h1 className="text-2xl font-semibold">Settings</h1>
       <Tabs defaultValue="sources">
         <TabsList>
-          <TabsTrigger value="sources">ATS sources</TabsTrigger>
-          <TabsTrigger value="filters">Keyword filters</TabsTrigger>
+          <TabsTrigger value="sources">Tracked companies</TabsTrigger>
+          <TabsTrigger value="filters">Keywords & Location</TabsTrigger>
           <TabsTrigger value="schedule">Scheduled scans</TabsTrigger>
           <TabsTrigger value="import">Import legacy data</TabsTrigger>
         </TabsList>
@@ -459,6 +460,25 @@ function FiltersTab() {
         />
       </Card>
 
+      {/* Search locations (for Discovery API) */}
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Globe className="h-5 w-5 text-[color:var(--jewel-emerald)]" />
+          <div>
+            <div className="text-sm font-medium">Search locations</div>
+            <div className="text-xs text-muted-foreground">
+              Only discover jobs in these locations. Leave empty to search all locations.
+            </div>
+          </div>
+        </div>
+        <TagInput
+          values={draft.location_include ?? []}
+          onChange={(next) => update({ location_include: next })}
+          tone="emerald"
+          placeholder='e.g. Europe, United Kingdom'
+        />
+      </Card>
+
       {/* Company excludes */}
       <Card className="p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -735,8 +755,86 @@ function ScheduleTab() {
         </Button>
       </Card>
 
+      <DiscoveryScheduleCard />
+
       <PushNotificationsCard />
     </div>
+  );
+}
+
+function DiscoveryScheduleCard() {
+  const qc = useQueryClient();
+  const getCfg = useServerFn(getDiscoveryConfig);
+  const saveCfg = useServerFn(saveDiscoveryConfig);
+
+  const config = useQuery({
+    queryKey: ["discovery-config"],
+    queryFn: () => getCfg(),
+  });
+
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [timeFrame, setTimeFrame] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (config.data && enabled === null) {
+      setEnabled(config.data.enabled ?? false);
+      setTimeFrame(config.data.time_frame ?? "7d");
+    }
+  }, [config.data, enabled]);
+
+  const saveM = useMutation({
+    mutationFn: () => saveCfg({ data: {
+      time_frame: (timeFrame ?? "7d") as "1h" | "24h" | "7d",
+      enabled: enabled ?? false,
+    } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discovery-config"] });
+      toast.success("Discovery settings saved");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  if (enabled === null) return null;
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <div className="text-sm font-medium">Company discovery</div>
+          <div className="text-xs text-muted-foreground">
+            Automatically search for new companies using the Fantastic Jobs API every week.
+            Uses your keyword groups as search terms.
+          </div>
+        </div>
+        <Switch checked={enabled} onCheckedChange={setEnabled} />
+      </div>
+
+      <div className="space-y-2 max-w-xs">
+        <Label htmlFor="disc-timeFrame" className="text-xs uppercase tracking-wide text-muted-foreground">
+          Lookback window
+        </Label>
+        <Select
+          value={timeFrame ?? "7d"}
+          onValueChange={setTimeFrame}
+          disabled={!enabled}
+        >
+          <SelectTrigger id="disc-timeFrame" className="max-w-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1h">Last hour</SelectItem>
+            <SelectItem value="24h">Last 24 hours</SelectItem>
+            <SelectItem value="7d">Last 7 days</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-[10px] text-muted-foreground">
+          How far back to look for job listings. Larger windows find more companies but take longer.
+        </p>
+      </div>
+
+      <Button onClick={() => saveM.mutate()} disabled={saveM.isPending} size="sm">
+        <Save className="h-3.5 w-3.5 mr-1" />
+        {saveM.isPending ? "Saving…" : "Save discovery settings"}
+      </Button>
+    </Card>
   );
 }
 

@@ -2,39 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Discovery keywords CRUD
-export const listDiscoveryKeywords = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data } = await context.supabase
-      .from("discovery_keywords")
-      .select("id, term, created_at")
-      .eq("user_id", context.userId)
-      .order("term");
-    return data ?? [];
-  });
-
-export const addDiscoveryKeyword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
-    z.object({ term: z.string().min(1).max(200) }).parse(input))
-  .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("discovery_keywords")
-      .insert({ user_id: context.userId, term: data.term.trim() });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const deleteDiscoveryKeyword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
-    z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
-    await context.supabase.from("discovery_keywords")
-      .delete().eq("id", data.id).eq("user_id", context.userId);
-    return { ok: true };
-  });
-
 // Discovery config
 export const getDiscoveryConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

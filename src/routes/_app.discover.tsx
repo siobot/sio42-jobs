@@ -1,22 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
   listDiscoverySuggestions, approveSuggestion, dismissSuggestion,
   triggerDiscovery, getDiscoveryStats,
-  listDiscoveryKeywords, addDiscoveryKeyword, deleteDiscoveryKeyword,
-  getDiscoveryConfig, saveDiscoveryConfig,
 } from "@/lib/jobs/discovery.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Search, Plus, Trash2, Check, X, Loader2, Sparkles, ExternalLink, Save, Building2,
+  Search, Check, X, Loader2, Sparkles, ExternalLink, Building2, Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,22 +26,6 @@ const ATS_LABELS: Record<string, string> = {
 };
 
 function DiscoverPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Discover Companies</h1>
-      <Tabs defaultValue="suggestions">
-        <TabsList>
-          <TabsTrigger value="suggestions">Suggested companies</TabsTrigger>
-          <TabsTrigger value="settings">Discovery settings</TabsTrigger>
-        </TabsList>
-        <TabsContent value="suggestions"><SuggestionsTab /></TabsContent>
-        <TabsContent value="settings"><DiscoverySettingsTab /></TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-function SuggestionsTab() {
   const qc = useQueryClient();
   const listFn = useServerFn(listDiscoverySuggestions);
   const approveFn = useServerFn(approveSuggestion);
@@ -106,7 +84,14 @@ function SuggestionsTab() {
   const st = stats.data;
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Discover Companies</h1>
+        <Link to="/settings" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+          <Settings className="h-3.5 w-3.5" /> Configure in Settings
+        </Link>
+      </div>
+
       {/* Stats bar */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -257,153 +242,5 @@ function SuggestionCard({
         </div>
       )}
     </Card>
-  );
-}
-
-function DiscoverySettingsTab() {
-  const qc = useQueryClient();
-  const listKwFn = useServerFn(listDiscoveryKeywords);
-  const addKwFn = useServerFn(addDiscoveryKeyword);
-  const delKwFn = useServerFn(deleteDiscoveryKeyword);
-  const getCfgFn = useServerFn(getDiscoveryConfig);
-  const saveCfgFn = useServerFn(saveDiscoveryConfig);
-
-  const keywords = useQuery({
-    queryKey: ["discovery-keywords"],
-    queryFn: () => listKwFn(),
-  });
-
-  const config = useQuery({
-    queryKey: ["discovery-config"],
-    queryFn: () => getCfgFn(),
-  });
-
-  const [newTerm, setNewTerm] = useState("");
-  const [timeFrame, setTimeFrame] = useState<string | null>(null);
-  const [enabled, setEnabled] = useState<boolean | null>(null);
-
-  const cfgData = config.data;
-  const currentTimeFrame = timeFrame ?? cfgData?.time_frame ?? "7d";
-  const currentEnabled = enabled ?? cfgData?.enabled ?? false;
-
-  const addKwM = useMutation({
-    mutationFn: (term: string) => addKwFn({ data: { term } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["discovery-keywords"] });
-      setNewTerm("");
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Add failed"),
-  });
-
-  const delKwM = useMutation({
-    mutationFn: (id: string) => delKwFn({ data: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["discovery-keywords"] }),
-  });
-
-  const saveCfgM = useMutation({
-    mutationFn: () => saveCfgFn({ data: { time_frame: currentTimeFrame as "1h" | "24h" | "7d", enabled: currentEnabled } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["discovery-config"] });
-      toast.success("Discovery settings saved");
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
-  });
-
-  const kws = keywords.data ?? [];
-
-  return (
-    <div className="space-y-4 mt-4">
-      {/* Discovery keywords */}
-      <Card className="p-4 space-y-3">
-        <div>
-          <div className="text-sm font-medium">Search keywords</div>
-          <div className="text-xs text-muted-foreground">
-            These terms are used to search job titles via the Fantastic Jobs API.
-            Separate from your job-matching filter keywords.
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {kws.map((kw) => (
-            <Badge key={kw.id} variant="secondary" className="gap-1 pr-1">
-              {kw.term}
-              <button
-                onClick={() => delKwM.mutate(kw.id)}
-                className="ml-1 rounded-full hover:bg-muted p-0.5"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-          {kws.length === 0 && (
-            <div className="text-xs text-muted-foreground italic">
-              No keywords yet — add some to start discovering companies.
-            </div>
-          )}
-        </div>
-
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (newTerm.trim()) addKwM.mutate(newTerm.trim());
-          }}
-        >
-          <Input
-            value={newTerm}
-            onChange={(e) => setNewTerm(e.target.value)}
-            placeholder='e.g. "customer success"'
-            className="text-sm"
-          />
-          <Button type="submit" disabled={!newTerm.trim()} size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Add
-          </Button>
-        </form>
-      </Card>
-
-      {/* Config */}
-      <Card className="p-4 space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <div className="text-sm font-medium">Weekly discovery</div>
-            <div className="text-xs text-muted-foreground">
-              Automatically search for new companies every week.
-            </div>
-          </div>
-          <Switch
-            checked={currentEnabled}
-            onCheckedChange={(v) => setEnabled(v)}
-          />
-        </div>
-
-        <div className="space-y-2 max-w-xs">
-          <Label htmlFor="timeFrame" className="text-xs uppercase tracking-wide text-muted-foreground">
-            Lookback window
-          </Label>
-          <select
-            id="timeFrame"
-            value={currentTimeFrame}
-            onChange={(e) => setTimeFrame(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="1h">Last hour</option>
-            <option value="24h">Last 24 hours</option>
-            <option value="7d">Last 7 days</option>
-          </select>
-          <p className="text-[10px] text-muted-foreground">
-            How far back to look for job listings. Larger windows find more companies but take longer.
-          </p>
-        </div>
-
-        <Button
-          size="sm"
-          onClick={() => saveCfgM.mutate()}
-          disabled={saveCfgM.isPending}
-        >
-          <Save className="h-3.5 w-3.5 mr-1" />
-          {saveCfgM.isPending ? "Saving…" : "Save settings"}
-        </Button>
-      </Card>
-    </div>
   );
 }

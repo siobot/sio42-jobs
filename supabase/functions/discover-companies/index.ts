@@ -27,6 +27,7 @@ async function fetchFantasticJobs(
   apiKey: string,
   keyword: string,
   timeFrame: string,
+  locationInclude: string[],
 ): Promise<FantasticJob[]> {
   const allJobs: FantasticJob[] = [];
   let offset = 0;
@@ -42,6 +43,10 @@ async function fetchFantasticJobs(
       limit: String(limit),
       offset: String(offset),
     });
+
+    if (locationInclude.length > 0) {
+      params.set("location", locationInclude.join(","));
+    }
 
     const res = await fetch(`${FANTASTIC_JOBS_URL}?${params}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -144,21 +149,15 @@ async function runDiscoveryForUser(
   userId: string,
   triggeredBy: string,
 ): Promise<Record<string, unknown>> {
-  const [{ data: configRow }, { data: keywordRows }, { data: sourceRows }, { data: existingSuggestions }, { data: kwConfigRow }] =
+  const [{ data: configRow }, { data: sourceRows }, { data: existingSuggestions }, { data: kwConfigRow }] =
     await Promise.all([
       supabase.from("discovery_config").select("*").eq("user_id", userId).maybeSingle(),
-      supabase.from("discovery_keywords").select("term").eq("user_id", userId),
       supabase.from("sources").select("type, slug, name").eq("user_id", userId),
       supabase.from("discovery_suggestions").select("ats_type, slug, status").eq("user_id", userId),
       supabase.from("keyword_config").select("config").eq("user_id", userId).maybeSingle(),
     ]);
 
   const config = configRow ?? { time_frame: "7d", enabled: false };
-  const keywords = (keywordRows ?? []).map((r: { term: string }) => r.term);
-
-  if (keywords.length === 0) {
-    return { userId, ok: false, error: "No discovery keywords configured" };
-  }
 
   // Build set of already-tracked slugs
   const trackedSlugs = new Set(
@@ -170,13 +169,21 @@ async function runDiscoveryForUser(
     (existingSuggestions ?? []).map((s: { ats_type: string; slug: string }) => `${s.ats_type}::${s.slug}`),
   );
 
-  // Load keyword config for filtering roles
+  // Load keyword config for filtering roles AND discovery search terms
   const kwConfig = (kwConfigRow?.config ?? {}) as Record<string, unknown>;
   const filterKeywords = Object.values((kwConfig.keywords ?? {}) as Record<string, string[]>).flat();
   const exclusions = ((kwConfig.exclusions as Record<string, unknown>)?.terms ?? []) as string[];
   const exceptions = ((kwConfig.exclusions as Record<string, unknown>)?.exceptions ?? []) as string[];
   const locationExclude = (kwConfig.location_exclude ?? []) as string[];
+  const locationInclude = (kwConfig.location_include ?? []) as string[];
   const nonEnglishMarkers = (kwConfig.non_english_markers ?? []) as string[];
+
+  // Use keyword groups as discovery search terms (deduplicated)
+  const keywords = [...new Set(filterKeywords)];
+
+  if (keywords.length === 0) {
+    return { userId, ok: false, error: "No keyword groups configured in Settings" };
+  }
 
   // Create run
   const { data: runRow, error: runErr } = await supabase
@@ -195,7 +202,7 @@ async function runDiscoveryForUser(
 
   for (const keyword of keywords) {
     try {
-      const jobs = await fetchFantasticJobs(apiKey, keyword, timeFrame);
+      const jobs = await fetchFantasticJobs(apiKey, keyword, timeFrame, locationInclude);
       allJobs.push(...jobs);
     } catch (e) {
       errors.push({
