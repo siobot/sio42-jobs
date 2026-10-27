@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, ListChecks, Send, Settings, History, LogOut, Menu, X, Compass, Sparkles } from "lucide-react";
+import { LayoutDashboard, ListChecks, Send, Settings, History, LogOut, Menu, X, Compass } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { markAllNotificationsRead } from "@/lib/jobs/api.functions";
@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 const nav = [
   { to: "/", label: "Jobs Feed", icon: LayoutDashboard, tour: "nav-feed" },
   { to: "/applications", label: "Applications", icon: Send, tour: "nav-applications" },
-  { to: "/discover", label: "Discover", icon: Sparkles, tour: "nav-discover" },
   { to: "/checklist", label: "Other Career Pages", icon: ListChecks, tour: "nav-checklist" },
   { to: "/history", label: "Scan history", icon: History, tour: "nav-history" },
   { to: "/settings", label: "Settings", icon: Settings, tour: "nav-settings" },

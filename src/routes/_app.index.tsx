@@ -5,13 +5,17 @@ import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { runScan, setJobStatus } from "@/lib/jobs/api.functions";
+import {
+  listDiscoverySuggestions, approveSuggestion, dismissSuggestion,
+  dismissAllSuggestions, triggerDiscovery, getDiscoveryStats,
+} from "@/lib/jobs/discovery.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRelativeTime } from "@/hooks/use-relative-time";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Search, Sparkles, ExternalLink, Check, X, Loader2 } from "lucide-react";
 import { JobActions } from "@/components/job-actions";
 import { ProductTour } from "@/components/product-tour";
 
@@ -140,6 +144,63 @@ function Dashboard() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Scan failed"),
   });
 
+  // Discovery
+  const listSuggestionsFn = useServerFn(listDiscoverySuggestions);
+  const approveFn = useServerFn(approveSuggestion);
+  const dismissFn = useServerFn(dismissSuggestion);
+  const dismissAllFn = useServerFn(dismissAllSuggestions);
+  const triggerFn = useServerFn(triggerDiscovery);
+
+  const suggestions = useQuery({
+    queryKey: ["discovery-suggestions"],
+    queryFn: () => listSuggestionsFn(),
+  });
+
+  const [discoveryRunning, setDiscoveryRunning] = useState(false);
+  const discoverM = useMutation({
+    mutationFn: () => triggerFn({ data: undefined as never }),
+    onMutate: () => setDiscoveryRunning(true),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
+      const result = r as Record<string, number>;
+      toast.success(
+        `Discovery complete: ${result.jobsFetched} jobs scanned, ${result.companiesFound} companies found, ${result.companiesSuggested} new suggestions`,
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Discovery failed"),
+    onSettled: () => setDiscoveryRunning(false),
+  });
+
+  const approveM = useMutation({
+    mutationFn: (id: string) => approveFn({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
+      qc.invalidateQueries({ queryKey: ["sources"] });
+      toast.success("Company added to your tracked sources");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Track failed"),
+  });
+
+  const dismissM = useMutation({
+    mutationFn: (id: string) => dismissFn({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
+      toast.success("Suggestion dismissed");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss failed"),
+  });
+
+  const dismissAllM = useMutation({
+    mutationFn: () => dismissAllFn({ data: undefined as never }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
+      toast.success("All suggestions dismissed");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss all failed"),
+  });
+
+  const discoveredItems = suggestions.data ?? [];
+
   const lastRunRel = useRelativeTime(stats.data?.latestRun?.finished_at ?? stats.data?.latestRun?.started_at);
 
   return (
@@ -150,6 +211,13 @@ function Dashboard() {
           <Button size="sm" onClick={() => scanM.mutate()} disabled={scanM.isPending || demoLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${scanM.isPending || demoLoading ? "animate-spin" : ""}`} />
             {scanM.isPending || demoLoading ? "Scanning…" : "Run scan now"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => discoverM.mutate()} disabled={discoveryRunning}>
+            {discoveryRunning ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Discovering…</>
+            ) : (
+              <><Sparkles className="h-4 w-4 mr-2" />Discover new</>
+            )}
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -227,6 +295,77 @@ function Dashboard() {
               )}
             </div>
           </Card>
+
+          {/* Discovered companies */}
+          {discoveredItems.length > 0 && (
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-medium">Discovered</h2>
+                  <Badge variant="secondary" className="text-[10px]">{discoveredItems.length}</Badge>
+                </div>
+                <Button
+                  size="sm" variant="ghost"
+                  onClick={() => dismissAllM.mutate()}
+                  disabled={dismissAllM.isPending}
+                  className="text-muted-foreground text-xs"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  {dismissAllM.isPending ? "Clearing…" : "Dismiss all"}
+                </Button>
+              </div>
+              <div className="divide-y divide-border">
+                {discoveredItems.map((s) => {
+                  const suggestion = s as unknown as { id: string; ats_type: string; slug: string; company_name: string; matching_roles: Array<{ title: string; url: string; location: string }> };
+                  const roles = suggestion.matching_roles ?? [];
+                  return (
+                    <div key={suggestion.id} className="py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-medium">{suggestion.company_name || suggestion.slug}</span>
+                          <Badge variant="outline" className="text-[10px] shrink-0">{suggestion.ats_type}</Badge>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button
+                            size="sm"
+                            onClick={() => approveM.mutate(suggestion.id)}
+                            disabled={approveM.isPending || dismissM.isPending}
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" /> Track company
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost"
+                            onClick={() => dismissM.mutate(suggestion.id)}
+                            disabled={approveM.isPending || dismissM.isPending}
+                            className="text-muted-foreground"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-1 pl-0.5">
+                        {roles.slice(0, 3).map((role, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <a href={role.url} target="_blank" rel="noopener noreferrer" className="font-medium truncate flex-1 hover:underline">
+                              {role.title}
+                            </a>
+                            {role.location && (
+                              <span className="text-muted-foreground shrink-0">{role.location}</span>
+                            )}
+                            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                          </div>
+                        ))}
+                        {roles.length > 3 && (
+                          <span className="text-xs text-muted-foreground">+ {roles.length - 3} more roles</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
         </>
       )}
       <ProductTour open={tourOpen && !demoLoading} onClose={closeTour} />

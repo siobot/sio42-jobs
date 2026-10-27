@@ -14,7 +14,6 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppApplicationsRouteImport } from './routes/_app.applications'
 import { Route as AppChecklistRouteImport } from './routes/_app.checklist'
-import { Route as AppDiscoverRouteImport } from './routes/_app.discover'
 import { Route as AppHistoryRouteImport } from './routes/_app.history'
 import { Route as AppJobsRouteImport } from './routes/_app.jobs'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
@@ -43,11 +42,6 @@ const AppApplicationsRoute = AppApplicationsRouteImport.update({
 const AppChecklistRoute = AppChecklistRouteImport.update({
   id: '/checklist',
   path: '/checklist',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDiscoverRoute = AppDiscoverRouteImport.update({
-  id: '/discover',
-  path: '/discover',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHistoryRoute = AppHistoryRouteImport.update({
@@ -81,7 +75,6 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/applications': typeof AppApplicationsRoute
   '/checklist': typeof AppChecklistRoute
-  '/discover': typeof AppDiscoverRoute
   '/history': typeof AppHistoryRoute
   '/jobs': typeof AppJobsRoute
   '/settings': typeof AppSettingsRoute
@@ -92,7 +85,6 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/applications': typeof AppApplicationsRoute
   '/checklist': typeof AppChecklistRoute
-  '/discover': typeof AppDiscoverRoute
   '/history': typeof AppHistoryRoute
   '/jobs': typeof AppJobsRoute
   '/settings': typeof AppSettingsRoute
@@ -106,7 +98,6 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_app/applications': typeof AppApplicationsRoute
   '/_app/checklist': typeof AppChecklistRoute
-  '/_app/discover': typeof AppDiscoverRoute
   '/_app/history': typeof AppHistoryRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/settings': typeof AppSettingsRoute
@@ -121,7 +112,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/applications'
     | '/checklist'
-    | '/discover'
     | '/history'
     | '/jobs'
     | '/settings'
@@ -132,7 +122,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/applications'
     | '/checklist'
-    | '/discover'
     | '/history'
     | '/jobs'
     | '/settings'
@@ -145,7 +134,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_app/applications'
     | '/_app/checklist'
-    | '/_app/discover'
     | '/_app/history'
     | '/_app/jobs'
     | '/_app/settings'
@@ -198,13 +186,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChecklistRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/discover': {
-      id: '/_app/discover'
-      path: '/discover'
-      fullPath: '/discover'
-      preLoaderRoute: typeof AppDiscoverRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/history': {
       id: '/_app/history'
       path: '/history'
@@ -246,7 +227,6 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppApplicationsRoute: typeof AppApplicationsRoute
   AppChecklistRoute: typeof AppChecklistRoute
-  AppDiscoverRoute: typeof AppDiscoverRoute
   AppHistoryRoute: typeof AppHistoryRoute
   AppJobsRoute: typeof AppJobsRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -256,7 +236,6 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppApplicationsRoute: AppApplicationsRoute,
   AppChecklistRoute: AppChecklistRoute,
-  AppDiscoverRoute: AppDiscoverRoute,
   AppHistoryRoute: AppHistoryRoute,
   AppJobsRoute: AppJobsRoute,
   AppSettingsRoute: AppSettingsRoute,
