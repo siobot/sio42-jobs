@@ -81,7 +81,7 @@ export const restoreDefaults = createServerFn({ method: "POST" })
 // Touch a manual company's last_checked_at
 export const markCompanyChecked = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -96,7 +96,7 @@ export const markCompanyChecked = createServerFn({ method: "POST" })
 // Update job status (interested / applied / dismissed / archived / new)
 export const setJobStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       id: z.string().uuid(),
       status: z.enum(["new", "interested", "applied", "dismissed", "archived"]),
@@ -130,7 +130,7 @@ export const setJobStatus = createServerFn({ method: "POST" })
 // Manual companies
 export const addManualCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ name: z.string().min(1).max(200), url: z.string().url() }).parse(input))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("manual_companies")
@@ -141,7 +141,7 @@ export const addManualCompany = createServerFn({ method: "POST" })
 
 export const updateManualCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       id: z.string().uuid(),
       url: z.string().url(),
@@ -158,7 +158,7 @@ export const updateManualCompany = createServerFn({ method: "POST" })
 
 export const updateManualCompanyNotes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), notes: z.string().max(2000) }).parse(input))
   .handler(async ({ data, context }) => {
     const notes = data.notes.trim();
@@ -172,7 +172,7 @@ export const updateManualCompanyNotes = createServerFn({ method: "POST" })
 
 export const deleteManualCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("manual_companies").delete().eq("id", data.id).eq("user_id", context.userId);
     return { ok: true };
@@ -182,7 +182,7 @@ export const deleteManualCompany = createServerFn({ method: "POST" })
 // into `sources` if so, otherwise into the manual `manual_companies` checklist.
 export const detectAndAddCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       url: z.string().url(),
       name: z.string().min(1).max(200).optional(),
@@ -232,7 +232,7 @@ export const detectAndAddCompany = createServerFn({ method: "POST" })
 // Sources
 export const addSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       type: z.enum(ATS_TYPES),
       slug: z.string().min(1).max(100),
@@ -247,7 +247,7 @@ export const addSource = createServerFn({ method: "POST" })
 
 export const toggleSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), enabled: z.boolean() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("sources").update({ enabled: data.enabled })
@@ -257,7 +257,7 @@ export const toggleSource = createServerFn({ method: "POST" })
 
 export const deleteSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("sources").delete().eq("id", data.id).eq("user_id", context.userId);
     return { ok: true };
@@ -266,7 +266,7 @@ export const deleteSource = createServerFn({ method: "POST" })
 // Keyword config
 export const saveKeywordConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ config: z.any() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("keyword_config")
@@ -278,7 +278,7 @@ export const saveKeywordConfig = createServerFn({ method: "POST" })
 // any) is paused, and its unreviewed jobs are marked Not Interested.
 export const excludeCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ company: z.string().trim().min(1).max(200) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -310,7 +310,7 @@ export const excludeCompany = createServerFn({ method: "POST" })
 // Applications
 export const updateApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       id: z.string().uuid(),
       stage: z.enum(["applied", "no_response", "screen", "interview", "offer", "rejected", "withdrawn"]).optional(),
@@ -332,7 +332,7 @@ export const updateApplication = createServerFn({ method: "POST" })
 
 export const addManualApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       company: z.string().min(1).max(200),
       title: z.string().min(1).max(300),
@@ -351,7 +351,7 @@ export const addManualApplication = createServerFn({ method: "POST" })
 
 export const deleteApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("applications").delete().eq("id", data.id).eq("user_id", context.userId);
     return { ok: true };
@@ -382,7 +382,7 @@ async function resyncApplicationStage(
 
 export const updateApplicationEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), changed_at: z.string() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase.from("application_events")
@@ -400,7 +400,7 @@ export const updateApplicationEvent = createServerFn({ method: "POST" })
 
 export const deleteApplicationEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: existing } = await context.supabase.from("application_events")
       .select("application_id")
@@ -422,7 +422,7 @@ export const deleteApplicationEvent = createServerFn({ method: "POST" })
 // Import legacy JSON
 export const importLegacy = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       config: z.any().optional(),
       applied: z.record(z.string(), z.any()).optional(),
@@ -553,7 +553,7 @@ export const getSchedule = createServerFn({ method: "GET" })
 
 export const saveSchedule = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       enabled: z.boolean(),
       frequency: z.enum(FREQUENCIES),
@@ -592,7 +592,7 @@ export const listNotifications = createServerFn({ method: "GET" })
 
 export const markNotificationRead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("notifications")
       .update({ read_at: new Date().toISOString() })
@@ -611,7 +611,7 @@ export const markAllNotificationsRead = createServerFn({ method: "POST" })
 
 export const deleteNotification = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("notifications")
       .delete().eq("id", data.id).eq("user_id", context.userId);
@@ -621,7 +621,7 @@ export const deleteNotification = createServerFn({ method: "POST" })
 // ---------- Push subscriptions ----------
 export const savePushSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       endpoint: z.string().url().max(2000),
       p256dh: z.string().min(1).max(500),
@@ -642,7 +642,7 @@ export const savePushSubscription = createServerFn({ method: "POST" })
 
 export const deletePushSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ endpoint: z.string().url().max(2000) }).parse(input))
   .handler(async ({ data, context }) => {
     await context.supabase.from("push_subscriptions")

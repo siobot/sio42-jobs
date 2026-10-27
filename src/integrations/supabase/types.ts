@@ -14,6 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
+      discovery_config: {
+        Row: {
+          user_id: string
+          time_frame: string
+          enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          time_frame?: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          time_frame?: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      discovery_keywords: {
+        Row: {
+          id: string
+          user_id: string
+          term: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          term: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          term?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      discovery_runs: {
+        Row: {
+          id: string
+          user_id: string
+          triggered_by: string
+          jobs_fetched: number
+          companies_found: number
+          companies_suggested: number
+          errors: Json
+          started_at: string
+          finished_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          triggered_by?: string
+          jobs_fetched?: number
+          companies_found?: number
+          companies_suggested?: number
+          errors?: Json
+          started_at?: string
+          finished_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          triggered_by?: string
+          jobs_fetched?: number
+          companies_found?: number
+          companies_suggested?: number
+          errors?: Json
+          started_at?: string
+          finished_at?: string | null
+        }
+        Relationships: []
+      }
+      discovery_suggestions: {
+        Row: {
+          id: string
+          user_id: string
+          ats_type: string
+          slug: string
+          company_name: string
+          matching_roles: Json
+          discovered_at: string
+          status: string
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          ats_type: string
+          slug: string
+          company_name?: string
+          matching_roles?: Json
+          discovered_at?: string
+          status?: string
+          resolved_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          ats_type?: string
+          slug?: string
+          company_name?: string
+          matching_roles?: Json
+          discovered_at?: string
+          status?: string
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
       application_events: {
         Row: {
           application_id: string
