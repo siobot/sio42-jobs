@@ -183,9 +183,10 @@ function Dashboard() {
 
   const dismissM = useMutation({
     mutationFn: (id: string) => dismissFn({ data: { id } }),
-    onSuccess: () => {
+    onSuccess: (_r, id) => {
+      setExcludedSuggestionIds((prev) => new Set(prev).add(id));
       qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
-      toast.success("Suggestion dismissed");
+      toast.success("Company excluded from future results");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss failed"),
   });
@@ -200,6 +201,7 @@ function Dashboard() {
   });
 
   const [actionedUrls, setActionedUrls] = useState<Set<string>>(new Set());
+  const [excludedSuggestionIds, setExcludedSuggestionIds] = useState<Set<string>>(new Set());
   const importJobFn = useServerFn(importDiscoveredJob);
   const importJobM = useMutation({
     mutationFn: (data: { title: string; url: string; company: string; location: string; ats_type: string; status: "interested" | "applied" | "dismissed" }) =>
@@ -314,7 +316,8 @@ function Dashboard() {
 
           {/* Discovered */}
           {discoveredItems.some((s) => {
-            const suggestion = s as unknown as { matching_roles: Array<{ url: string }> };
+            const suggestion = s as unknown as { id: string; matching_roles: Array<{ url: string }> };
+            if (excludedSuggestionIds.has(suggestion.id)) return false;
             return (suggestion.matching_roles ?? []).some((r) => !actionedUrls.has(r.url));
           }) && (
             <Card className="p-4">
@@ -336,6 +339,7 @@ function Dashboard() {
               <div className="divide-y divide-border">
                 {discoveredItems.flatMap((s) => {
                   const suggestion = s as unknown as { id: string; ats_type: string; slug: string; company_name: string; matching_roles: Array<{ title: string; url: string; location: string }> };
+                  if (excludedSuggestionIds.has(suggestion.id)) return [];
                   const roles = (suggestion.matching_roles ?? []).filter((r) => !actionedUrls.has(r.url));
                   const company = suggestion.company_name || suggestion.slug;
                   const busy = approveM.isPending || dismissM.isPending;
@@ -363,6 +367,9 @@ function Dashboard() {
                         >Not Interested</Button>
                         <Button size="sm" variant="ghost" onClick={() => approveM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
                           Track company
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => dismissM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
+                          Exclude company
                         </Button>
                       </div>
                     </div>
