@@ -85,6 +85,18 @@ export const dismissSuggestion = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const dismissAllSuggestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { error } = await context.supabase
+      .from("discovery_suggestions")
+      .update({ status: "dismissed", resolved_at: new Date().toISOString() })
+      .eq("user_id", context.userId)
+      .eq("status", "pending");
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // Trigger discovery run manually
 export const triggerDiscovery = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

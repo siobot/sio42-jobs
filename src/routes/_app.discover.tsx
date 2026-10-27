@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
-  listDiscoverySuggestions, approveSuggestion, dismissSuggestion,
+  listDiscoverySuggestions, approveSuggestion, dismissSuggestion, dismissAllSuggestions,
   triggerDiscovery, getDiscoveryStats,
 } from "@/lib/jobs/discovery.functions";
 import { Card } from "@/components/ui/card";
@@ -30,6 +30,7 @@ function DiscoverPage() {
   const listFn = useServerFn(listDiscoverySuggestions);
   const approveFn = useServerFn(approveSuggestion);
   const dismissFn = useServerFn(dismissSuggestion);
+  const dismissAllFn = useServerFn(dismissAllSuggestions);
   const triggerFn = useServerFn(triggerDiscovery);
   const statsFn = useServerFn(getDiscoveryStats);
 
@@ -62,6 +63,16 @@ function DiscoverPage() {
       toast.success("Company dismissed");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss failed"),
+  });
+
+  const dismissAllM = useMutation({
+    mutationFn: () => dismissAllFn({ data: undefined as never }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
+      qc.invalidateQueries({ queryKey: ["discovery-stats"] });
+      toast.success("All suggestions dismissed");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss all failed"),
   });
 
   const [running, setRunning] = useState(false);
@@ -111,7 +122,18 @@ function DiscoverPage() {
               </div>
             </>
           )}
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            {items.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => dismissAllM.mutate()}
+                disabled={dismissAllM.isPending}
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                {dismissAllM.isPending ? "Clearing…" : "Dismiss all"}
+              </Button>
+            )}
             <Button
               size="sm"
               onClick={() => triggerM.mutate()}
