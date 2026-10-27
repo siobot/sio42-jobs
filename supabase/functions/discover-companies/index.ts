@@ -133,7 +133,7 @@ function filterRolesByKeywords(
 
     if (neLower.some((m) => title.includes(m))) return false;
     if (locExLower.some((l) => loc.includes(l))) return false;
-    if (locInLower.length > 0 && !locInLower.some((l) => loc.includes(l))) return false;
+    if (locInLower.length > 0 && loc !== "" && !loc.includes("remote") && !loc.includes("emea") && !loc.includes("worldwide") && !locInLower.some((l) => loc.includes(l))) return false;
     if (!kwLower.some((kw) => title.includes(kw))) return false;
     if (exLower.some((e) => title.includes(e)) && !excLower.some((e) => title.includes(e))) return false;
 
