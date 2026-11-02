@@ -113,9 +113,17 @@ export const importDiscoveredJob = createServerFn({ method: "POST" })
       company: z.string(),
       location: z.string().default(""),
       ats_type: z.string(),
+      slug: z.string(),
       status: z.enum(["interested", "applied", "dismissed"]),
     }).parse(input))
   .handler(async ({ data, context }) => {
+    await context.supabase.from("sources").upsert({
+      user_id: context.userId,
+      type: data.ats_type as "greenhouse" | "ashby" | "lever",
+      slug: data.slug,
+      name: data.company,
+    }, { onConflict: "user_id,type,slug" });
+
     const externalId = `discovered:${data.url}`;
     const { data: existing } = await context.supabase
       .from("jobs")

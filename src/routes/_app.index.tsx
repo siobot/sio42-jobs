@@ -210,7 +210,7 @@ function Dashboard() {
   const [excludedSuggestionIds, setExcludedSuggestionIds] = useState<Set<string>>(new Set());
   const importJobFn = useServerFn(importDiscoveredJob);
   const importJobM = useMutation({
-    mutationFn: (data: { title: string; url: string; company: string; location: string; ats_type: string; status: "interested" | "applied" | "dismissed" }) =>
+    mutationFn: (data: { title: string; url: string; company: string; location: string; ats_type: string; slug: string; status: "interested" | "applied" | "dismissed" }) =>
       importJobFn({ data }),
     onSuccess: (_r, vars) => {
       setActionedUrls((prev) => new Set(prev).add(vars.url));
@@ -364,13 +364,13 @@ function Dashboard() {
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         <Button size="sm" variant="outline" disabled={busy}
-                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, status: "interested" })}
+                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, slug: suggestion.slug, status: "interested" })}
                         >Interested</Button>
                         <Button size="sm" variant="outline" disabled={busy}
-                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, status: "applied" })}
+                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, slug: suggestion.slug, status: "applied" })}
                         >Applied</Button>
                         <Button size="sm" variant="outline" disabled={busy}
-                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, status: "dismissed" })}
+                          onClick={() => importJobM.mutate({ title: role.title, url: role.url, company, location: role.location, ats_type: suggestion.ats_type, slug: suggestion.slug, status: "dismissed" })}
                         >Not Interested</Button>
                         <Button size="sm" variant="ghost" onClick={() => approveM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
                           Track company
