@@ -269,8 +269,52 @@ export const saveKeywordConfig = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ config: z.any() }).parse(input))
   .handler(async ({ data, context }) => {
-    await context.supabase.from("keyword_config")
-      .upsert({ user_id: context.userId, config: data.config as KeywordConfig, updated_at: new Date().toISOString() });
+    // The excluded-companies list has its own Settings tab; keep whatever is
+    // stored so saving keyword filters never overwrites it.
+    const { data: row } = await context.supabase.from("keyword_config").select("config").maybeSingle();
+    const stored = (row?.config as KeywordConfig | undefined)?.company_exclude ?? [];
+    await context.supabase.from("keyword_config").upsert({
+      user_id: context.userId,
+      config: { ...(data.config as KeywordConfig), company_exclude: stored },
+      updated_at: new Date().toISOString(),
+    });
+    return { ok: true };
+  });
+
+// Replaces the excluded-companies list (Settings → Excluded companies).
+// Companies taken off the list can show up in Discovery again.
+export const setExcludedCompanies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({ companies: z.array(z.string().trim().min(1).max(200)).max(2000) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const seen = new Set<string>();
+    const companies = data.companies.filter((c) => {
+      const k = c.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    const { data: row } = await supabase.from("keyword_config").select("config").maybeSingle();
+    const config = (row?.config as KeywordConfig | undefined) ?? DEFAULT_KEYWORD_CONFIG;
+    const { error } = await supabase.from("keyword_config").upsert({
+      user_id: userId,
+      config: { ...config, company_exclude: companies },
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+
+    const { data: dismissed } = await supabase.from("discovery_suggestions")
+      .select("id, company_name, slug").eq("user_id", userId).eq("status", "dismissed");
+    const reopen = (dismissed ?? [])
+      .filter((s) => !seen.has((s.company_name || s.slug).trim().toLowerCase()))
+      .map((s) => s.id);
+    if (reopen.length) {
+      await supabase.from("discovery_suggestions")
+        .update({ status: "pending", resolved_at: null }).in("id", reopen);
+    }
     return { ok: true };
   });
 
@@ -303,6 +347,9 @@ export const excludeCompany = createServerFn({ method: "POST" })
       .update({ enabled: false })
       .eq("user_id", userId).eq("name", data.company).eq("enabled", true)
       .select("id");
+    await supabase.from("discovery_suggestions")
+      .update({ status: "dismissed", resolved_at: new Date().toISOString() })
+      .eq("user_id", userId).eq("status", "pending").ilike("company_name", data.company.replace(/[\\%_]/g, (m) => `\\${m}`));
 
     return { hiddenJobs: hidden?.length ?? 0, pausedSources: paused?.length ?? 0 };
   });

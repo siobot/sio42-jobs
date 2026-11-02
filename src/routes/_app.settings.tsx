@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  detectAndAddCompany, deleteSource, toggleSource, saveKeywordConfig, importLegacy, restoreDefaults,
+  detectAndAddCompany, deleteSource, toggleSource, saveKeywordConfig, setExcludedCompanies, importLegacy, restoreDefaults,
   getSchedule, saveSchedule, savePushSubscription, deletePushSubscription, hasPushSubscription,
 } from "@/lib/jobs/api.functions";
 import { getDiscoveryConfig, saveDiscoveryConfig } from "@/lib/jobs/discovery.functions";
@@ -39,11 +39,13 @@ function SettingsPage() {
         <TabsList>
           <TabsTrigger value="sources">Tracked companies</TabsTrigger>
           <TabsTrigger value="filters">Keywords & Location</TabsTrigger>
+          <TabsTrigger value="excluded">Excluded companies</TabsTrigger>
           <TabsTrigger value="schedule">Scheduled scans</TabsTrigger>
           <TabsTrigger value="import">Import legacy data</TabsTrigger>
         </TabsList>
         <TabsContent value="sources"><SourcesTab /></TabsContent>
         <TabsContent value="filters"><FiltersTab /></TabsContent>
+        <TabsContent value="excluded"><ExcludedCompaniesTab /></TabsContent>
         <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="import"><ImportTab /></TabsContent>
       </Tabs>
@@ -519,26 +521,6 @@ function FiltersTab() {
         </div>
       </Card>
 
-      {/* Company excludes */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-[color:var(--jewel-ruby)]" />
-          <div>
-            <div className="text-sm font-medium">Excluded companies</div>
-            <div className="text-xs text-muted-foreground">
-              Never show jobs from these companies. Add one with Remove company on any job; remove a
-              name here to see that company again.
-            </div>
-          </div>
-        </div>
-        <TagInput
-          values={draft.company_exclude ?? []}
-          onChange={(next) => update({ company_exclude: next })}
-          tone="ruby"
-          placeholder="e.g. Acme"
-        />
-      </Card>
-
       {/* Non-English markers */}
       <Card className="p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -667,6 +649,83 @@ function ImportTab() {
         {importM.isPending ? "Importing…" : "Import selected files"}
       </Button>
     </Card>
+  );
+}
+
+function ExcludedCompaniesTab() {
+  const qc = useQueryClient();
+  const save = useServerFn(setExcludedCompanies);
+  const [name, setName] = useState("");
+
+  const list = useQuery({
+    queryKey: ["excluded-companies"],
+    queryFn: async () => {
+      const { data } = await supabase.from("keyword_config").select("config").maybeSingle();
+      return ((data?.config as KeywordConfig | undefined)?.company_exclude ?? []) as string[];
+    },
+  });
+  const companies = [...(list.data ?? [])].sort((a, b) => a.localeCompare(b));
+
+  const saveM = useMutation({
+    mutationFn: (next: string[]) => save({ data: { companies: next } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["excluded-companies"] });
+      qc.invalidateQueries({ queryKey: ["keyword-config"] });
+      qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
+  });
+
+  const add = () => {
+    const n = name.trim();
+    if (!n) return;
+    if (companies.some((c) => c.toLowerCase() === n.toLowerCase())) {
+      toast.info(`${n} is already excluded`);
+    } else {
+      saveM.mutate([...companies, n]);
+    }
+    setName("");
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-[color:var(--jewel-ruby)]" />
+          <div>
+            <div className="text-sm font-medium">Excluded companies</div>
+            <div className="text-xs text-muted-foreground">
+              Scans and Discovery never show jobs from these companies. Remove company on any job adds it
+              here; delete a name to see that company again.
+            </div>
+          </div>
+        </div>
+        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); add(); }}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Company name" className="h-9 text-sm" />
+          <Button type="submit" size="sm" disabled={!name.trim() || saveM.isPending}>
+            <Plus className="h-4 w-4 mr-1" /> Add
+          </Button>
+        </form>
+      </Card>
+
+      <Card className="divide-y divide-border">
+        {companies.map((c) => (
+          <div key={c} className="p-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0 text-sm truncate">{c}</div>
+            <Button
+              size="icon" variant="ghost" aria-label={`Stop excluding ${c}`}
+              disabled={saveM.isPending}
+              onClick={() => saveM.mutate(companies.filter((x) => x !== c))}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        {!list.isLoading && companies.length === 0 && (
+          <p className="p-6 text-sm text-muted-foreground text-center">No excluded companies.</p>
+        )}
+      </Card>
+    </div>
   );
 }
 

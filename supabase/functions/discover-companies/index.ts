@@ -166,9 +166,9 @@ async function runDiscoveryForUser(
     (sourceRows ?? []).map((s: { type: string; slug: string }) => `${s.type}::${s.slug}`),
   );
 
-  // Companies already shown. "dismissed" means the user excluded the company
-  // and "approved" means it is now tracked (regular scans cover it) — skip
-  // both. Pending ones stay open so their new jobs keep arriving.
+  // Companies already shown. "approved" means it is now tracked (regular scans
+  // cover it), so skip it. Exclusion is decided by the excluded-companies list
+  // below, so a "dismissed" company taken off that list reopens.
   type Role = { title: string; url: string; location: string };
   type ExistingSuggestion = {
     id: string; ats_type: string; slug: string; status: string;
@@ -178,8 +178,8 @@ async function runDiscoveryForUser(
   const closedSlugs = new Set<string>();
   for (const s of (existingSuggestions ?? []) as ExistingSuggestion[]) {
     const key = `${s.ats_type}::${s.slug}`;
-    if (s.status === "pending") existingByKey.set(key, s);
-    else closedSlugs.add(key);
+    if (s.status === "approved") closedSlugs.add(key);
+    else existingByKey.set(key, s);
   }
 
   // Load keyword config for filtering roles AND discovery search terms
@@ -190,7 +190,7 @@ async function runDiscoveryForUser(
   const locationExclude = (kwConfig.location_exclude ?? []) as string[];
   const locationInclude = (kwConfig.location_include ?? []) as string[];
   const nonEnglishMarkers = (kwConfig.non_english_markers ?? []) as string[];
-  // Companies removed with "Remove company" on a job.
+  // Companies removed with "Remove company" (Settings → Excluded companies).
   const excludedCompanies = new Set(
     ((kwConfig.company_exclude ?? []) as string[]).map((c) => c.trim().toLowerCase()),
   );
@@ -303,6 +303,8 @@ async function runDiscoveryForUser(
       await supabase.from("discovery_suggestions").update({
         matching_roles: [...fresh, ...(existing.matching_roles ?? [])].slice(0, 50),
         discovered_at: new Date().toISOString(),
+        status: "pending",
+        resolved_at: null,
       }).eq("id", existing.id);
     } else {
       companiesSuggested++;
