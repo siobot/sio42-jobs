@@ -112,18 +112,32 @@ export const setJobStatus = createServerFn({ method: "POST" })
     // If applied, ensure an application row exists
     if (data.status === "applied") {
       const { data: job } = await context.supabase
-        .from("jobs").select("id, company, title, url").eq("id", data.id).maybeSingle();
+        .from("jobs").select("id, company, title, url, notes").eq("id", data.id).maybeSingle();
       if (job) {
         const { data: existing } = await context.supabase
           .from("applications").select("id").eq("job_id", job.id).maybeSingle();
         if (!existing) {
           await context.supabase.from("applications").insert({
             user_id: context.userId, job_id: job.id, company: job.company, title: job.title,
-            url: job.url, stage: "applied",
+            url: job.url, stage: "applied", notes: job.notes,
           });
         }
       }
     }
+    return { ok: true };
+  });
+
+export const setJobNotes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({ id: z.string().uuid(), notes: z.string().max(5000) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const notes = data.notes.trim();
+    const { error } = await context.supabase.from("jobs")
+      .update({ notes: notes || null })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
