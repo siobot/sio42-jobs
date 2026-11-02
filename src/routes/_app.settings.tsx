@@ -877,13 +877,15 @@ function DiscoveryScheduleCard() {
   useEffect(() => {
     if (config.data && enabled === null) {
       setEnabled(config.data.enabled ?? false);
-      setTimeFrame(config.data.time_frame ?? "7d");
+      // "1h" is no longer offered; treat old saved values as 24 hours.
+      const tf = config.data.time_frame ?? "7d";
+      setTimeFrame(tf === "1h" ? "24h" : tf);
     }
   }, [config.data, enabled]);
 
   const saveM = useMutation({
     mutationFn: () => saveCfg({ data: {
-      time_frame: (timeFrame ?? "7d") as "1h" | "24h" | "7d",
+      time_frame: (timeFrame ?? "7d") as "24h" | "7d",
       enabled: enabled ?? false,
     } }),
     onSuccess: () => {
@@ -901,12 +903,11 @@ function DiscoveryScheduleCard() {
         <div className="flex-1">
           <div className="text-sm font-medium">Company discovery</div>
           <div className="text-xs text-muted-foreground">
-            Every week, search new job postings on Greenhouse, Ashby, and Lever using the Fantastic Jobs
-            API, with your keyword groups as search terms. Shows new jobs from any company you don't
-            already track, except companies you've excluded.
+            When you select Discover on the Jobs Feed, search job postings on Greenhouse, Ashby, and
+            Lever from the window below using the Fantastic Jobs API, with your keyword groups as search
+            terms. Shows new jobs from any company you don't already track, except excluded companies.
           </div>
         </div>
-        <Switch checked={enabled} onCheckedChange={setEnabled} />
       </div>
 
       <div className="space-y-2 max-w-xs">
@@ -916,17 +917,15 @@ function DiscoveryScheduleCard() {
         <Select
           value={timeFrame ?? "7d"}
           onValueChange={setTimeFrame}
-          disabled={!enabled}
         >
           <SelectTrigger id="disc-timeFrame" className="max-w-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="1h">Last hour</SelectItem>
             <SelectItem value="24h">Last 24 hours</SelectItem>
             <SelectItem value="7d">Last 7 days</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-[10px] text-muted-foreground">
-          How far back to look for job listings. Larger windows find more companies but take longer.
+          How far back to look for job postings. Last 7 days finds more but takes longer.
         </p>
       </div>
 

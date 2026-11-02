@@ -212,7 +212,8 @@ async function runDiscoveryForUser(
   const runId = runRow.id;
 
   const errors: Array<{ step: string; error: string }> = [];
-  const timeFrame = config.time_frame ?? "7d";
+  // "1h" is no longer offered in Settings; older saved values run as 24h.
+  const timeFrame = config.time_frame === "1h" ? "24h" : (config.time_frame ?? "7d");
 
   // Phase 1: Fetch jobs from Fantastic Jobs API for each keyword
   const allJobs: FantasticJob[] = [];

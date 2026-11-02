@@ -18,7 +18,7 @@ export const saveDiscoveryConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
     z.object({
-      time_frame: z.enum(["1h", "24h", "7d"]),
+      time_frame: z.enum(["24h", "7d"]),
       enabled: z.boolean(),
     }).parse(input))
   .handler(async ({ data, context }) => {
