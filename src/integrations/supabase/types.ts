@@ -97,6 +97,7 @@ export type Database = {
           id: string
           user_id: string
           ats_type: string
+          cleared_urls: Json
           slug: string
           company_name: string
           matching_roles: Json
@@ -119,6 +120,7 @@ export type Database = {
           id?: string
           user_id?: string
           ats_type?: string
+          cleared_urls?: Json
           slug?: string
           company_name?: string
           matching_roles?: Json

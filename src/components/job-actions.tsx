@@ -42,6 +42,8 @@ export function JobActions({ jobId, status, company }: JobActionsProps) {
     onSuccess: (r, name) => {
       refreshJobLists(qc);
       qc.invalidateQueries({ queryKey: ["keyword-config"] });
+      qc.invalidateQueries({ queryKey: ["excluded-companies"] });
+      qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
       qc.invalidateQueries({ queryKey: ["sources"] });
       toast.success(
         `${name} removed from your search` +

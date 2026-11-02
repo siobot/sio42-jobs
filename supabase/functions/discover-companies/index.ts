@@ -154,7 +154,8 @@ async function runDiscoveryForUser(
     await Promise.all([
       supabase.from("discovery_config").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("sources").select("type, slug, name").eq("user_id", userId),
-      supabase.from("discovery_suggestions").select("ats_type, slug, status").eq("user_id", userId),
+      supabase.from("discovery_suggestions")
+        .select("id, ats_type, slug, status, matching_roles, cleared_urls").eq("user_id", userId),
       supabase.from("keyword_config").select("config").eq("user_id", userId).maybeSingle(),
     ]);
 
@@ -165,10 +166,21 @@ async function runDiscoveryForUser(
     (sourceRows ?? []).map((s: { type: string; slug: string }) => `${s.type}::${s.slug}`),
   );
 
-  // Build set of already-suggested or dismissed slugs (avoid duplicates)
-  const seenSlugs = new Set(
-    (existingSuggestions ?? []).map((s: { ats_type: string; slug: string }) => `${s.ats_type}::${s.slug}`),
-  );
+  // Companies already shown. "approved" means it is now tracked (regular scans
+  // cover it), so skip it. Exclusion is decided by the excluded-companies list
+  // below, so a "dismissed" company taken off that list reopens.
+  type Role = { title: string; url: string; location: string };
+  type ExistingSuggestion = {
+    id: string; ats_type: string; slug: string; status: string;
+    matching_roles: Role[] | null; cleared_urls: string[] | null;
+  };
+  const existingByKey = new Map<string, ExistingSuggestion>();
+  const closedSlugs = new Set<string>();
+  for (const s of (existingSuggestions ?? []) as ExistingSuggestion[]) {
+    const key = `${s.ats_type}::${s.slug}`;
+    if (s.status === "approved") closedSlugs.add(key);
+    else existingByKey.set(key, s);
+  }
 
   // Load keyword config for filtering roles AND discovery search terms
   const kwConfig = (kwConfigRow?.config ?? {}) as Record<string, unknown>;
@@ -178,6 +190,10 @@ async function runDiscoveryForUser(
   const locationExclude = (kwConfig.location_exclude ?? []) as string[];
   const locationInclude = (kwConfig.location_include ?? []) as string[];
   const nonEnglishMarkers = (kwConfig.non_english_markers ?? []) as string[];
+  // Companies removed with "Remove company" (Settings → Excluded companies).
+  const excludedCompanies = new Set(
+    ((kwConfig.company_exclude ?? []) as string[]).map((c) => c.trim().toLowerCase()),
+  );
 
   // Use keyword groups as discovery search terms (deduplicated)
   const keywords = [...new Set(filterKeywords)];
@@ -196,7 +212,8 @@ async function runDiscoveryForUser(
   const runId = runRow.id;
 
   const errors: Array<{ step: string; error: string }> = [];
-  const timeFrame = config.time_frame ?? "7d";
+  // "1h" is no longer offered in Settings; older saved values run as 24h.
+  const timeFrame = config.time_frame === "1h" ? "24h" : (config.time_frame ?? "7d");
 
   // Phase 1: Fetch jobs from Fantastic Jobs API for each keyword
   const allJobs: FantasticJob[] = [];
@@ -232,7 +249,8 @@ async function runDiscoveryForUser(
     if (!slug) continue;
 
     const key = `${atsType}::${slug}`;
-    if (trackedSlugs.has(key) || seenSlugs.has(key)) continue;
+    if (trackedSlugs.has(key) || closedSlugs.has(key)) continue;
+    if (excludedCompanies.has((job.organization || slug).trim().toLowerCase())) continue;
 
     if (!companyMap.has(key)) {
       companyMap.set(key, {
@@ -251,24 +269,52 @@ async function runDiscoveryForUser(
     });
   }
 
-  // Phase 3: Apply keyword/exclusion filtering and create suggestions
-  let companiesSuggested = 0;
+  // Roles the user already acted on (Interested / Applied / Not Interested).
+  const { data: importedJobs } = await supabase
+    .from("jobs").select("external_id").eq("user_id", userId).like("external_id", "discovered:%");
+  const actionedUrls = new Set(
+    (importedJobs ?? []).map((j: { external_id: string }) => j.external_id.replace("discovered:", "")),
+  );
 
-  for (const company of companyMap.values()) {
+  // Phase 3: Apply keyword/exclusion filtering, then add new companies and
+  // add new roles to companies already on the list.
+  let companiesSuggested = 0;
+  let companiesUpdated = 0;
+  let newRoles = 0;
+
+  for (const [key, company] of companyMap) {
     const matched = filterKeywords.length > 0
       ? filterRolesByKeywords(
           company.roles, filterKeywords, exclusions, exceptions, locationExclude, locationInclude, nonEnglishMarkers,
         )
       : company.roles;
 
-    if (matched.length > 0) {
+    const existing = existingByKey.get(key);
+    const known = new Set([
+      ...actionedUrls,
+      ...(existing?.matching_roles ?? []).map((r) => r.url),
+      ...(existing?.cleared_urls ?? []),
+    ]);
+    const fresh = matched.filter((r) => !known.has(r.url));
+    if (fresh.length === 0) continue;
+    newRoles += fresh.length;
+
+    if (existing) {
+      companiesUpdated++;
+      await supabase.from("discovery_suggestions").update({
+        matching_roles: [...fresh, ...(existing.matching_roles ?? [])].slice(0, 50),
+        discovered_at: new Date().toISOString(),
+        status: "pending",
+        resolved_at: null,
+      }).eq("id", existing.id);
+    } else {
       companiesSuggested++;
       await supabase.from("discovery_suggestions").insert({
         user_id: userId,
         ats_type: company.atsType,
         slug: company.slug,
         company_name: company.organization,
-        matching_roles: matched.slice(0, 20),
+        matching_roles: fresh.slice(0, 50),
         status: "pending",
       });
     }
@@ -290,6 +336,8 @@ async function runDiscoveryForUser(
     jobsFetched: uniqueJobs.size,
     companiesFound: companyMap.size,
     companiesSuggested,
+    companiesUpdated,
+    newRoles,
     errors: errors.length,
   };
 }

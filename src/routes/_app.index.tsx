@@ -4,9 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { runScan, setJobStatus } from "@/lib/jobs/api.functions";
+import { excludeCompany, runScan, setJobStatus } from "@/lib/jobs/api.functions";
 import {
-  listDiscoverySuggestions, approveSuggestion, dismissSuggestion,
+  listDiscoverySuggestions, approveSuggestion,
   dismissAllSuggestions, triggerDiscovery, importDiscoveredJob,
 } from "@/lib/jobs/discovery.functions";
 import { Button } from "@/components/ui/button";
@@ -147,7 +147,6 @@ function Dashboard() {
   // Discovery
   const listSuggestionsFn = useServerFn(listDiscoverySuggestions);
   const approveFn = useServerFn(approveSuggestion);
-  const dismissFn = useServerFn(dismissSuggestion);
   const dismissAllFn = useServerFn(dismissAllSuggestions);
   const triggerFn = useServerFn(triggerDiscovery);
 
@@ -164,7 +163,7 @@ function Dashboard() {
       qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
       const result = r as Record<string, number>;
       toast.success(
-        `Discovery complete: ${result.jobsFetched} jobs scanned, ${result.companiesFound} companies found, ${result.companiesSuggested} new suggestions`,
+        `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched} scanned)`,
       );
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Discovery failed"),
@@ -181,12 +180,18 @@ function Dashboard() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Track failed"),
   });
 
+  // Same as "Remove company" on scanned jobs: adds the company to the
+  // excluded list, which scans and Discovery both skip.
+  const excludeFn = useServerFn(excludeCompany);
   const dismissM = useMutation({
-    mutationFn: (id: string) => dismissFn({ data: { id } }),
-    onSuccess: (_r, id) => {
-      setExcludedSuggestionIds((prev) => new Set(prev).add(id));
+    mutationFn: (v: { id: string; company: string }) => excludeFn({ data: { company: v.company } }),
+    onSuccess: (_r, v) => {
+      setExcludedSuggestionIds((prev) => new Set(prev).add(v.id));
       qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
-      toast.success("Company excluded from future results");
+      qc.invalidateQueries({ queryKey: ["excluded-companies"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-recent"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-interested"] });
+      toast.success(`${v.company} removed from your search`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss failed"),
   });
@@ -195,7 +200,7 @@ function Dashboard() {
     mutationFn: () => dismissAllFn({ data: undefined as never }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
-      toast.success("All suggestions dismissed");
+      toast.success("Cleared — new jobs from these companies will still appear");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss all failed"),
   });
@@ -368,8 +373,8 @@ function Dashboard() {
                         <Button size="sm" variant="ghost" onClick={() => approveM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
                           Track company
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => dismissM.mutate(suggestion.id)} disabled={busy} className="text-muted-foreground">
-                          Exclude company
+                        <Button size="sm" variant="ghost" onClick={() => dismissM.mutate({ id: suggestion.id, company })} disabled={busy} className="text-muted-foreground">
+                          Remove company
                         </Button>
                       </div>
                     </div>
