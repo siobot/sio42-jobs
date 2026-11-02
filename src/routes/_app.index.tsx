@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { RefreshCw, Sparkles, X, Loader2 } from "lucide-react";
 import { JobActions } from "@/components/job-actions";
+import { JobNotes } from "@/components/job-notes";
 import { ProductTour } from "@/components/product-tour";
 
 type Status = "new" | "interested" | "applied" | "dismissed" | "archived";
@@ -128,7 +129,7 @@ function Dashboard() {
     queryKey: ["dashboard-interested"],
     queryFn: async () => {
       const { data } = await supabase.from("jobs")
-        .select("id, company, title, url, source, status_updated_at, matched_groups, status")
+        .select("id, company, title, url, source, status_updated_at, matched_groups, status, notes")
         .eq("status", "interested")
         .order("status_updated_at", { ascending: false }).limit(50);
       return data ?? [];
@@ -284,6 +285,7 @@ function Dashboard() {
                         <Badge key={g} variant="secondary" className="ml-1 text-[10px]">{g}</Badge>
                       ))}
                     </div>
+                    <JobNotes key={j.notes ?? ""} jobId={j.id} notes={j.notes} />
                   </div>
                   <JobActions jobId={j.id} status={j.status as Status} company={j.company} />
                 </div>

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { ExternalLink } from "lucide-react";
 import { JobActions } from "@/components/job-actions";
+import { JobNotes } from "@/components/job-notes";
 import { SOURCE_LABELS } from "@/lib/jobs/types";
 
 
@@ -38,7 +39,7 @@ function JobsPage() {
     queryKey: ["jobs", search.status, q, source],
     queryFn: async () => {
       let query = supabase.from("jobs")
-        .select("id, company, title, location, url, source, job_date, matched_keywords, matched_groups, first_seen_at, status")
+        .select("id, company, title, location, url, source, job_date, matched_keywords, matched_groups, first_seen_at, status, notes")
         .order("first_seen_at", { ascending: false })
         .limit(500);
       if (search.status !== "all") query = query.eq("status", search.status);
@@ -116,6 +117,7 @@ function JobsPage() {
                   <Badge key={k} variant="outline" className="text-[10px]">{k}</Badge>
                 ))}
               </div>
+              {j.status === "interested" && <JobNotes key={j.notes ?? ""} jobId={j.id} notes={j.notes} />}
             </div>
             <div className="shrink-0">
               <JobActions jobId={j.id} status={j.status as Status} company={j.company} />
