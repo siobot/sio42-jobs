@@ -842,8 +842,9 @@ function DiscoveryScheduleCard() {
         <div className="flex-1">
           <div className="text-sm font-medium">Company discovery</div>
           <div className="text-xs text-muted-foreground">
-            Automatically search for new companies using the Fantastic Jobs API every week.
-            Uses your keyword groups as search terms.
+            Every week, search new job postings on Greenhouse, Ashby, and Lever using the Fantastic Jobs
+            API, with your keyword groups as search terms. Shows new jobs from any company you don't
+            already track, except companies you've excluded.
           </div>
         </div>
         <Switch checked={enabled} onCheckedChange={setEnabled} />

@@ -164,7 +164,7 @@ function Dashboard() {
       qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
       const result = r as Record<string, number>;
       toast.success(
-        `Discovery complete: ${result.jobsFetched} jobs scanned, ${result.companiesFound} companies found, ${result.companiesSuggested} new suggestions`,
+        `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched} scanned)`,
       );
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Discovery failed"),
@@ -195,7 +195,7 @@ function Dashboard() {
     mutationFn: () => dismissAllFn({ data: undefined as never }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["discovery-suggestions"] });
-      toast.success("All suggestions dismissed");
+      toast.success("Cleared — new jobs from these companies will still appear");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Dismiss all failed"),
   });

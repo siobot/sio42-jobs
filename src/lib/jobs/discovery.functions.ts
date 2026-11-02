@@ -36,7 +36,7 @@ export const saveDiscoveryConfig = createServerFn({ method: "POST" })
 export const listDiscoverySuggestions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [{ data }, { data: importedJobs }] = await Promise.all([
+    const [{ data }, { data: importedJobs }, { data: kwRow }] = await Promise.all([
       context.supabase
         .from("discovery_suggestions")
         .select("*")
@@ -48,11 +48,17 @@ export const listDiscoverySuggestions = createServerFn({ method: "GET" })
         .select("external_id")
         .eq("user_id", context.userId)
         .like("external_id", "discovered:%"),
+      context.supabase.from("keyword_config").select("config").eq("user_id", context.userId).maybeSingle(),
     ]);
+    // Companies removed with "Remove company" on a tracked job.
+    const excluded = new Set(
+      (((kwRow?.config ?? {}) as { company_exclude?: string[] }).company_exclude ?? [])
+        .map((c) => c.trim().toLowerCase()),
+    );
     const importedUrls = new Set(
       (importedJobs ?? []).map((j: { external_id: string }) => j.external_id.replace("discovered:", "")),
     );
-    return (data ?? []).map((s) => {
+    return (data ?? []).filter((s) => !excluded.has((s.company_name || s.slug).trim().toLowerCase())).map((s) => {
       const roles = (s.matching_roles ?? []) as Array<{ title: string; url: string; location: string }>;
       return { ...s, matching_roles: roles.filter((r) => !importedUrls.has(r.url)) };
     }).filter((s) => (s.matching_roles as unknown[]).length > 0);
@@ -140,15 +146,27 @@ export const importDiscoveredJob = createServerFn({ method: "POST" })
     return { ok: true, jobId: row.id };
   });
 
+// "Dismiss all" clears the jobs currently listed but keeps each company open,
+// so later discovery runs still bring in that company's new jobs. Use
+// "Exclude company" to stop a company appearing at all.
 export const dismissAllSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { error } = await context.supabase
+    const { data, error } = await context.supabase
       .from("discovery_suggestions")
-      .update({ status: "dismissed", resolved_at: new Date().toISOString() })
+      .select("id, matching_roles, cleared_urls")
       .eq("user_id", context.userId)
       .eq("status", "pending");
     if (error) throw new Error(error.message);
+    for (const s of data ?? []) {
+      const roles = (s.matching_roles ?? []) as Array<{ url: string }>;
+      const cleared = (s.cleared_urls ?? []) as string[];
+      const { error: updErr } = await context.supabase
+        .from("discovery_suggestions")
+        .update({ matching_roles: [], cleared_urls: [...new Set([...cleared, ...roles.map((r) => r.url)])] })
+        .eq("id", s.id);
+      if (updErr) throw new Error(updErr.message);
+    }
     return { ok: true };
   });
 
