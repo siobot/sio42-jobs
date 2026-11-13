@@ -139,3 +139,23 @@ export function cleanCompanyNameFromTitle(title: string): string | null {
 
   return t || null;
 }
+
+// Public job-board page for a stored ATS source (inverse of parseAtsFromUrl).
+export function boardUrl(type: string, slug: string): string | null {
+  const s = encodeURIComponent(slug);
+  switch (type) {
+    case "greenhouse": return `https://job-boards.greenhouse.io/${s}`;
+    case "lever": return `https://jobs.lever.co/${s}`;
+    case "ashby": return `https://jobs.ashbyhq.com/${s}`;
+    case "workable": return `https://apply.workable.com/${s}`;
+    case "recruitee": return `https://${s}.recruitee.com`;
+    case "personio": return `https://${s}.jobs.personio.com`;
+    case "bamboohr": return `https://${s}.bamboohr.com/careers`;
+    case "breezy": return `https://${s}.breezy.hr`;
+    case "pinpoint": return `https://${s}.pinpointhq.com`;
+    case "smartrecruiters": return `https://careers.smartrecruiters.com/${s}`;
+    case "teamtailor": return `https://${slug}/jobs`; // slug is the full host
+    case "workday": return `https://${slug}`; // slug is host/site
+    default: return null;
+  }
+}

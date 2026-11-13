@@ -7,6 +7,7 @@ import {
   detectAndAddCompany, deleteSource, toggleSource, saveKeywordConfig, setExcludedCompanies, importLegacy, restoreDefaults,
   getSchedule, saveSchedule, savePushSubscription, deletePushSubscription, hasPushSubscription,
 } from "@/lib/jobs/api.functions";
+import { boardUrl } from "@/lib/jobs/detect";
 import { getDiscoveryConfig, saveDiscoveryConfig } from "@/lib/jobs/discovery.functions";
 import { VAPID_PUBLIC_KEY } from "@/lib/push/config";
 import { subscribeToPush, unsubscribeFromPush, getCurrentSubscription } from "@/lib/push/register";
@@ -125,7 +126,17 @@ function SourcesTab() {
         {TYPE_LABELS[s.type] ?? s.type}
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{s.name}</div>
+        {(() => {
+          const href = isAggregator ? null : boardUrl(s.type, s.slug);
+          return href ? (
+            <a href={href} target="_blank" rel="noopener noreferrer"
+              className="block text-sm font-medium truncate text-primary underline-offset-4 hover:underline">
+              {s.name}
+            </a>
+          ) : (
+            <div className="text-sm font-medium truncate">{s.name}</div>
+          );
+        })()}
         <div className="text-xs text-muted-foreground truncate">
           {isAggregator ? "Aggregated board — no slug needed" : s.slug}
         </div>
