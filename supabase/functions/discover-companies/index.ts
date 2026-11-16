@@ -339,6 +339,7 @@ async function runDiscoveryForUser(
     companiesUpdated,
     newRoles,
     errors: errors.length,
+    errorDetails: errors,
   };
 }
 
@@ -364,28 +365,15 @@ Deno.serve(async (req: Request) => {
     let userIds: string[] = [];
     const triggeredBy = (body.triggered_by as string) || "manual";
 
-    if (body.user_id) {
-      userIds = [body.user_id as string];
-    } else {
-      const cronSecret = Deno.env.get("DISCOVERY_CRON_SECRET");
-      const provided = req.headers.get("x-cron-secret");
-      if (!cronSecret || provided !== cronSecret) {
-        return new Response(JSON.stringify({ error: "user_id required or valid x-cron-secret" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const { data: enabledUsers } = await supabase
-        .from("discovery_config")
-        .select("user_id")
-        .eq("enabled", true);
-      userIds = (enabledUsers ?? []).map((r) => r.user_id);
-      if (userIds.length === 0) {
-        return new Response(JSON.stringify({ ok: true, message: "No users with discovery enabled" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    // Discovery runs only when the user presses "Discover new" (free-plan API
+    // quota is finite), so scheduled/cron calls without a user_id are refused.
+    if (!body.user_id) {
+      return new Response(JSON.stringify({ error: "user_id required; scheduled discovery is disabled" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+    userIds = [body.user_id as string];
 
     const allResults: Array<Record<string, unknown>> = [];
 
