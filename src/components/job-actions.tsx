@@ -14,6 +14,8 @@ interface JobActionsProps {
   jobId: string;
   status: Status;
   company?: string;
+  /** Hide "Not Interested" (used when listing already-dismissed jobs for recovery). */
+  hideDismiss?: boolean;
 }
 
 const refreshJobLists = (qc: ReturnType<typeof useQueryClient>) => {
@@ -23,7 +25,7 @@ const refreshJobLists = (qc: ReturnType<typeof useQueryClient>) => {
   qc.invalidateQueries({ queryKey: ["dashboard-interested"] });
 };
 
-export function JobActions({ jobId, status, company }: JobActionsProps) {
+export function JobActions({ jobId, status, company, hideDismiss }: JobActionsProps) {
   const qc = useQueryClient();
   const setStatus = useServerFn(setJobStatus);
   const exclude = useServerFn(excludeCompany);
@@ -72,7 +74,7 @@ export function JobActions({ jobId, status, company }: JobActionsProps) {
     <div className="flex flex-wrap gap-1.5">
       {btn("interested", "Interested")}
       {btn("applied", "Applied")}
-      {btn("dismissed", "Not Interested")}
+      {!hideDismiss && btn("dismissed", "Not Interested")}
       {company && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
