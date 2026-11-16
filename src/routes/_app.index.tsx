@@ -34,6 +34,9 @@ const searchSchema = z.object({
   tour: z.literal("1").optional(),
 });
 
+const DISCOVER_BANNER_KEY = "discover-banner";
+type DiscoverBanner = { tone: "success" | "error"; text: string; errors: string[]; at: string };
+
 export const Route = createFileRoute("/_app/")({
   head: () => ({ meta: [{ title: "Jobs Feed — Job Monitor" }] }),
   validateSearch: searchSchema,
@@ -157,6 +160,22 @@ function Dashboard() {
   });
 
   const [discoveryRunning, setDiscoveryRunning] = useState(false);
+
+  // Result of the last Discover run, shown until dismissed (kept across reloads).
+  const [discoverBanner, setDiscoverBanner] = useState<DiscoverBanner | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DISCOVER_BANNER_KEY);
+      if (raw) setDiscoverBanner(JSON.parse(raw) as DiscoverBanner);
+    } catch { /* storage unavailable */ }
+  }, []);
+  const showDiscoverBanner = (b: DiscoverBanner | null) => {
+    setDiscoverBanner(b);
+    try {
+      if (b) localStorage.setItem(DISCOVER_BANNER_KEY, JSON.stringify(b));
+      else localStorage.removeItem(DISCOVER_BANNER_KEY);
+    } catch { /* storage unavailable */ }
+  };
   const discoverM = useMutation({
     mutationFn: () => triggerFn({ data: undefined as never }),
     onMutate: () => setDiscoveryRunning(true),
@@ -169,21 +188,23 @@ function Dashboard() {
         jobsRemaining?: number | null; requestsRemaining?: number | null;
         capReached?: boolean; maxJobsPerRun?: number;
       };
-      toast.success(
-        `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested ?? 0} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched ?? 0} scanned)` +
-          (result.capReached ? ` — stopped at the ${result.maxJobsPerRun}-job limit; the next run continues from here` : ""),
-        { duration: 30000, closeButton: true },
-      );
       const errs = result.errorDetails ?? [];
-      if (errs.length > 0) {
-        toast.error(
-          `Discovery had ${errs.length} error${errs.length === 1 ? "" : "s"}: ` +
-            errs.slice(0, 3).map((e) => `${e.step.replace(/^fetch:/, "")} — ${e.error}`).join("; "),
-          { duration: 30000, closeButton: true },
-        );
-      }
+      showDiscoverBanner({
+        tone: errs.length > 0 ? "error" : "success",
+        text:
+          `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested ?? 0} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched ?? 0} scanned)` +
+          (result.capReached ? ` — stopped at the ${result.maxJobsPerRun}-job limit; the next run continues from here` : ""),
+        errors: errs.map((e) => `${e.step.replace(/^fetch:/, "")} — ${e.error}`),
+        at: new Date().toISOString(),
+      });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Discovery failed"),
+    onError: (e) =>
+      showDiscoverBanner({
+        tone: "error",
+        text: "Discovery failed",
+        errors: [e instanceof Error ? e.message : String(e)],
+        at: new Date().toISOString(),
+      }),
     onSettled: () => setDiscoveryRunning(false),
   });
 
@@ -277,6 +298,36 @@ function Dashboard() {
           )}
         </p>
       </div>
+
+      {discoverBanner && (
+        <div
+          role="status"
+          className={`relative rounded-md border p-3 pr-10 text-sm ${
+            discoverBanner.tone === "error"
+              ? "border-destructive/50 bg-destructive/10"
+              : "border-primary/40 bg-primary/5"
+          }`}
+        >
+          <div className="font-medium">{discoverBanner.text}</div>
+          {discoverBanner.errors.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-xs text-destructive">
+              {discoverBanner.errors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
+          <div className="mt-1 text-xs text-muted-foreground">
+            {new Date(discoverBanner.at).toLocaleString()}
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="absolute right-1 top-1 h-7 w-7"
+            onClick={() => showDiscoverBanner(null)}
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {demoLoading ? (
         <div className="relative">
