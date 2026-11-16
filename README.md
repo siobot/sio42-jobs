@@ -1,6 +1,8 @@
 # Job Search Helper
 
-Job Search Helper collects job postings from company career pages and remote-job boards. It filters them against your keywords and locations and shows the matches in one feed. You can also track the jobs you apply to.
+Job Search Helper runs a daily automated scan, replacing time-consuming manual checks of career pages and job boards. It pulls job openings that match your keywords and locations from selected company career pages (through ATS APIs and RSS feeds), remote-job boards and the Fantastic Jobs API. It shows the matches in one feed and tracks the jobs you apply to.
+
+Built with Claude Code, GitHub, Netlify and Supabase.
 
 ## What it does
 
