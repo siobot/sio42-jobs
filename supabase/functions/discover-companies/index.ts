@@ -31,7 +31,8 @@ type DiscoveredCompany = {
 // keywords combined into one Boolean title search with location filters applied
 // server-side, then (if a location filter is set and the cap isn't reached) the
 // same search for jobs with no recognisable location, which a location filter
-// would otherwise drop.
+// would otherwise drop. Each request resumes from the last job id seen for
+// the same search (cursor), so no job is paid for twice.
 const MAX_JOBS_PER_RUN = 100;
 
 type FetchResult = {
@@ -88,6 +89,7 @@ async function fetchFantasticJobs(
   location: string | "none" | null,
   timeFrame: string,
   limit: number,
+  cursor: number,
 ): Promise<FetchResult> {
   const params = new URLSearchParams({
     title_advanced: titleQuery,
@@ -96,7 +98,9 @@ async function fetchFantasticJobs(
     organization_agency: "exclude",
     time_frame: timeFrame,
     limit: String(limit),
-    offset: "0",
+    // Cursor pagination: results ordered by id ascending, starting after
+    // `cursor`, so each run resumes where the previous one stopped.
+    cursor: String(cursor),
   });
   if (location === "none") params.set("has_no_location", "true");
   else if (location) params.set("location_advanced", location);
@@ -276,18 +280,32 @@ async function runDiscoveryForUser(
   ];
   if (locationQuery) passes.push({ step: "fetch:no-location", location: "none" });
 
+  type CursorState = Record<string, { key: string; cursor: number }>;
+  const savedCursors = ((configRow as { cursors?: CursorState } | null)?.cursors ?? {}) as CursorState;
+  const nextCursors: CursorState = { ...savedCursors };
+
   for (const pass of passes) {
     const room = MAX_JOBS_PER_RUN - allJobs.length;
     if (room <= 0) break;
+    // A changed search (keywords, location settings, time frame) starts over.
+    const key = JSON.stringify([timeFrame, titleQuery, pass.location]);
+    const saved = savedCursors[pass.step];
+    const cursor = saved && saved.key === key && saved.cursor > 0 ? saved.cursor : 1;
     try {
-      const r = await fetchFantasticJobs(apiKey, titleQuery, pass.location, timeFrame, room);
+      const r = await fetchFantasticJobs(apiKey, titleQuery, pass.location, timeFrame, room, cursor);
       allJobs.push(...r.jobs);
       jobsRemaining = r.jobsRemaining ?? jobsRemaining;
       requestsRemaining = r.requestsRemaining ?? requestsRemaining;
+      const lastId = r.jobs.reduce((m, j) => Math.max(m, Number(j.id) || 0), cursor);
+      nextCursors[pass.step] = { key, cursor: lastId };
     } catch (e) {
       errors.push({ step: pass.step, error: e instanceof Error ? e.message : String(e) });
     }
   }
+
+  const { error: cursorErr } = await supabase.from("discovery_config")
+    .upsert({ user_id: userId, cursors: nextCursors }, { onConflict: "user_id" });
+  if (cursorErr) errors.push({ step: "save-cursor", error: cursorErr.message });
   const capReached = allJobs.length >= MAX_JOBS_PER_RUN;
 
   // Dedupe jobs by ID
