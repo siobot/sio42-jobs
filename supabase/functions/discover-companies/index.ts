@@ -91,17 +91,24 @@ async function fetchFantasticJobs(
   limit: number,
   cursor: number,
 ): Promise<FetchResult> {
+  // The API's windows are 1h, 24h, 7d and 6m. 36h/48h use the 7d window
+  // narrowed to jobs indexed within the last N hours (date_created_gte).
+  const hours = { "36h": 36, "48h": 48 }[timeFrame];
   const params = new URLSearchParams({
     title_advanced: titleQuery,
     source: "ashby,greenhouse,lever.co",
     ai_language: "English",
     organization_agency: "exclude",
-    time_frame: timeFrame,
+    time_frame: hours ? "7d" : timeFrame,
     limit: String(limit),
     // Cursor pagination: results ordered by id ascending, starting after
     // `cursor`, so each run resumes where the previous one stopped.
     cursor: String(cursor),
   });
+  if (hours) {
+    const since = new Date(Date.now() - hours * 3600_000).toISOString().slice(0, 19);
+    params.set("date_created_gte", since);
+  }
   if (location === "none") params.set("has_no_location", "true");
   else if (location) params.set("location_advanced", location);
 
