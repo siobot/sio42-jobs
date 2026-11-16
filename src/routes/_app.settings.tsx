@@ -8,7 +8,7 @@ import {
   getSchedule, saveSchedule, savePushSubscription, deletePushSubscription, hasPushSubscription,
 } from "@/lib/jobs/api.functions";
 import { boardUrl } from "@/lib/jobs/detect";
-import { getDiscoveryConfig, saveDiscoveryConfig } from "@/lib/jobs/discovery.functions";
+import { diagnoseDiscovery, getDiscoveryConfig, saveDiscoveryConfig } from "@/lib/jobs/discovery.functions";
 import { VAPID_PUBLIC_KEY } from "@/lib/push/config";
 import { subscribeToPush, unsubscribeFromPush, getCurrentSubscription } from "@/lib/push/register";
 import { ATS_TYPES, DEFAULT_KEYWORD_CONFIG, SOURCE_LABELS, type KeywordConfig } from "@/lib/jobs/types";
@@ -876,6 +876,11 @@ function DiscoveryScheduleCard() {
   const qc = useQueryClient();
   const getCfg = useServerFn(getDiscoveryConfig);
   const saveCfg = useServerFn(saveDiscoveryConfig);
+  const diagnoseFn = useServerFn(diagnoseDiscovery);
+  const diagnoseM = useMutation({
+    mutationFn: () => diagnoseFn(),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Diagnose failed"),
+  });
 
   const config = useQuery({
     queryKey: ["discovery-config"],
@@ -946,6 +951,31 @@ function DiscoveryScheduleCard() {
         <Save className="h-3.5 w-3.5 mr-1" />
         {saveM.isPending ? "Saving…" : "Save discovery settings"}
       </Button>
+
+      <div className="space-y-2 border-t pt-4">
+        <div className="text-sm font-medium">Diagnose</div>
+        <p className="text-xs text-muted-foreground">
+          Counts matching jobs in your saved lookback window with more of your filters each step, to show which
+          one reduces results to 0. Uses 3 API calls and no jobs. Save settings first.
+        </p>
+        <Button size="sm" variant="outline" onClick={() => diagnoseM.mutate()} disabled={diagnoseM.isPending}>
+          {diagnoseM.isPending ? "Counting…" : "Diagnose (3 calls)"}
+        </Button>
+        {diagnoseM.data && (
+          diagnoseM.data.ok ? (
+            <ul className="text-xs space-y-0.5">
+              <li className="text-muted-foreground">Window: {diagnoseM.data.timeFrame}</li>
+              {(diagnoseM.data.results ?? []).map((r) => (
+                <li key={r.label}>
+                  {r.label}: <span className="font-medium">{String(r.count)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-destructive">{diagnoseM.data.error}</p>
+          )
+        )}
+      </div>
     </Card>
   );
 }

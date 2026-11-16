@@ -203,6 +203,29 @@ export const triggerDiscovery = createServerFn({ method: "POST" })
     return res.json();
   });
 
+// Settings → "Diagnose": job counts with progressively more filters (3 API calls, 0 jobs).
+export const diagnoseDiscovery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const supabaseUrl = process.env.SUPABASE_URL ?? process.env.SB_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SB_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) throw new Error("Supabase config missing");
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/discover-companies`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: context.userId, mode: "diagnose" }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Diagnose failed: ${res.status} ${text.slice(0, 200)}`);
+    }
+    return (await res.json()) as {
+      ok: boolean; error?: string; timeFrame?: string;
+      results?: Array<{ label: string; count: number | string }>;
+    };
+  });
+
 // Usage stats
 export const getDiscoveryStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
