@@ -82,6 +82,45 @@ function headerInt(res: Response, name: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Filters shared by the data and count endpoints.
+function searchParams(titleQuery: string, location: string | "none" | null, timeFrame: string): URLSearchParams {
+  // The API's windows are 1h, 24h, 7d and 6m. 36h/48h use the 7d window
+  // narrowed to jobs indexed within the last N hours (date_created_gte).
+  const hours = ({ "36h": 36, "48h": 48 } as Record<string, number>)[timeFrame];
+  const params = new URLSearchParams({
+    title_advanced: titleQuery,
+    source: "ashby,greenhouse,lever.co",
+    ai_language: "English",
+    organization_agency: "exclude",
+    time_frame: hours ? "7d" : timeFrame,
+  });
+  if (hours) {
+    const since = new Date(Date.now() - hours * 3600_000).toISOString().slice(0, 19);
+    params.set("date_created_gte", since);
+  }
+  if (location === "none") params.set("has_no_location", "true");
+  else if (location) params.set("location_advanced", location);
+  return params;
+}
+
+// active-ats-count: 1 API call, 0 Jobs credits. Response shape isn't
+// documented in detail, so take the first number found.
+async function countFantasticJobs(apiKey: string, params: URLSearchParams): Promise<number | string> {
+  const res = await fetch(`${FANTASTIC_JOBS_URL}-count?${params}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(65000),
+  });
+  const text = await res.text().catch(() => "");
+  if (!res.ok) return `error ${res.status}: ${text.slice(0, 200)}`;
+  try {
+    const body = JSON.parse(text);
+    if (typeof body === "number") return body;
+    const found = Object.values(body ?? {}).find((v) => typeof v === "number");
+    if (typeof found === "number") return found;
+  } catch { /* fall through */ }
+  return `unexpected response: ${text.slice(0, 200)}`;
+}
+
 async function fetchFantasticJobs(
   apiKey: string,
   titleQuery: string,
@@ -92,26 +131,11 @@ async function fetchFantasticJobs(
   limit: number,
   cursor: number,
 ): Promise<FetchResult> {
-  // The API's windows are 1h, 24h, 7d and 6m. 36h/48h use the 7d window
-  // narrowed to jobs indexed within the last N hours (date_created_gte).
-  const hours = { "36h": 36, "48h": 48 }[timeFrame];
-  const params = new URLSearchParams({
-    title_advanced: titleQuery,
-    source: "ashby,greenhouse,lever.co",
-    ai_language: "English",
-    organization_agency: "exclude",
-    time_frame: hours ? "7d" : timeFrame,
-    limit: String(limit),
-    // Cursor pagination: results ordered by id ascending, starting after
-    // `cursor`, so each run resumes where the previous one stopped.
-    cursor: String(cursor),
-  });
-  if (hours) {
-    const since = new Date(Date.now() - hours * 3600_000).toISOString().slice(0, 19);
-    params.set("date_created_gte", since);
-  }
-  if (location === "none") params.set("has_no_location", "true");
-  else if (location) params.set("location_advanced", location);
+  const params = searchParams(titleQuery, location, timeFrame);
+  params.set("limit", String(limit));
+  // Cursor pagination: results ordered by id ascending, starting after
+  // `cursor`, so each run resumes where the previous one stopped.
+  params.set("cursor", String(cursor));
 
   const res = await fetch(`${FANTASTIC_JOBS_URL}?${params}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -454,6 +478,43 @@ async function runDiscoveryForUser(
   };
 }
 
+// Settings → "Diagnose": counts matching jobs with progressively more of the
+// user's filters, to show which one reduces results to 0. 3 API calls, 0 jobs.
+async function runDiagnoseForUser(
+  supabase: ReturnType<typeof createClient>,
+  apiKey: string,
+  userId: string,
+): Promise<Record<string, unknown>> {
+  const [{ data: configRow }, { data: kwConfigRow }] = await Promise.all([
+    supabase.from("discovery_config").select("time_frame").eq("user_id", userId).maybeSingle(),
+    supabase.from("keyword_config").select("config").eq("user_id", userId).maybeSingle(),
+  ]);
+  const tf = (configRow as { time_frame?: string } | null)?.time_frame ?? "7d";
+  const timeFrame = tf === "1h" ? "24h" : tf;
+  const kw = ((kwConfigRow as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<string, unknown>;
+  const keywords = [...new Set(Object.values((kw.keywords ?? {}) as Record<string, string[]>).flat())];
+  const ex = (kw.exclusions ?? {}) as { terms?: string[]; exceptions?: string[] };
+  const include = (kw.location_include ?? []) as string[];
+  const exclude = (kw.location_exclude ?? []) as string[];
+
+  const titleQuery = buildTitleQuery(keywords, ex.terms ?? [], ex.exceptions ?? []);
+  if (!titleQuery) return { ok: false, error: "No keyword groups configured in Settings" };
+
+  const steps: Array<{ label: string; location: string | null }> = [
+    { label: "Keywords only", location: null },
+    { label: "+ Search locations", location: buildLocationQuery(include, []) },
+    { label: "+ Location excludes", location: buildLocationQuery(include, exclude) },
+  ];
+  const results = [];
+  for (const s of steps) {
+    results.push({
+      label: s.label,
+      count: await countFantasticJobs(apiKey, searchParams(titleQuery, s.location, timeFrame)),
+    });
+  }
+  return { ok: true, timeFrame, results, titleQuery, locationQuery: steps[2].location };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -478,6 +539,13 @@ Deno.serve(async (req: Request) => {
 
     // Discovery runs only when the user presses "Discover new" (free-plan API
     // quota is finite), so scheduled/cron calls without a user_id are refused.
+    if (body.user_id && body.mode === "diagnose") {
+      const result = await runDiagnoseForUser(supabase, apiKey, body.user_id as string);
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!body.user_id) {
       return new Response(JSON.stringify({ error: "user_id required; scheduled discovery is disabled" }), {
         status: 400,
