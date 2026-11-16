@@ -187,12 +187,18 @@ function Dashboard() {
         errorDetails?: Array<{ step: string; error: string }>;
         jobsRemaining?: number | null; requestsRemaining?: number | null;
         capReached?: boolean; maxJobsPerRun?: number;
+        passCounts?: { location: number | null; noLocation: number | null }; overlap?: number;
       };
+      const pc = result.passCounts;
+      const fmt = (n: number | null | undefined) => (n == null ? "not run" : String(n));
+      const breakdown = pc
+        ? ` — location: ${fmt(pc.location)}, no location: ${fmt(pc.noLocation)}, overlap: ${result.overlap ?? 0}`
+        : "";
       const errs = result.errorDetails ?? [];
       showDiscoverBanner({
         tone: errs.length > 0 ? "error" : "success",
         text:
-          `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested ?? 0} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched ?? 0} scanned)` +
+          `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested ?? 0} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched ?? 0} scanned${breakdown})` +
           (result.capReached ? ` — stopped at the ${result.maxJobsPerRun}-job limit; the next run continues from here` : ""),
         errors: errs.map((e) => `${e.step.replace(/^fetch:/, "")} — ${e.error}`),
         at: new Date().toISOString(),
