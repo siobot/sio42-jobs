@@ -27,8 +27,11 @@ type DiscoveredCompany = {
 };
 
 // Free-plan quota (jobs and API calls) is finite and never resets, so each
-// Discover run makes ONE request: all keywords combined into one Boolean title
-// search, location exclusions applied server-side, capped at MAX_JOBS_PER_RUN.
+// Discover run makes at most two requests, sharing a MAX_JOBS_PER_RUN cap: all
+// keywords combined into one Boolean title search with location filters applied
+// server-side, then (if a location filter is set and the cap isn't reached) the
+// same search for jobs with no recognisable location, which a location filter
+// would otherwise drop.
 const MAX_JOBS_PER_RUN = 100;
 
 type FetchResult = {
@@ -80,8 +83,11 @@ function headerInt(res: Response, name: string): number | null {
 async function fetchFantasticJobs(
   apiKey: string,
   titleQuery: string,
-  locationQuery: string | null,
+  // A location_advanced expression, "none" for jobs with no recognisable
+  // location (has_no_location), or null for no location filter.
+  location: string | "none" | null,
   timeFrame: string,
+  limit: number,
 ): Promise<FetchResult> {
   const params = new URLSearchParams({
     title_advanced: titleQuery,
@@ -89,10 +95,11 @@ async function fetchFantasticJobs(
     ai_language: "English",
     organization_agency: "exclude",
     time_frame: timeFrame,
-    limit: String(MAX_JOBS_PER_RUN),
+    limit: String(limit),
     offset: "0",
   });
-  if (locationQuery) params.set("location_advanced", locationQuery);
+  if (location === "none") params.set("has_no_location", "true");
+  else if (location) params.set("location_advanced", location);
 
   const res = await fetch(`${FANTASTIC_JOBS_URL}?${params}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -257,20 +264,29 @@ async function runDiscoveryForUser(
   // "1h" is no longer offered in Settings; older saved values run as 24h.
   const timeFrame = config.time_frame === "1h" ? "24h" : (config.time_frame ?? "7d");
 
-  // Phase 1: one combined request to the Fantastic Jobs API
+  // Phase 1: fetch from the Fantastic Jobs API (see MAX_JOBS_PER_RUN note)
   const allJobs: FantasticJob[] = [];
   let jobsRemaining: number | null = null;
   let requestsRemaining: number | null = null;
   const titleQuery = buildTitleQuery(keywords, exclusions, exceptions)!;
   const locationQuery = buildLocationQuery(locationInclude, locationExclude);
 
-  try {
-    const r = await fetchFantasticJobs(apiKey, titleQuery, locationQuery, timeFrame);
-    allJobs.push(...r.jobs);
-    jobsRemaining = r.jobsRemaining;
-    requestsRemaining = r.requestsRemaining;
-  } catch (e) {
-    errors.push({ step: "fetch", error: e instanceof Error ? e.message : String(e) });
+  const passes: Array<{ step: string; location: string | "none" | null }> = [
+    { step: "fetch", location: locationQuery },
+  ];
+  if (locationQuery) passes.push({ step: "fetch:no-location", location: "none" });
+
+  for (const pass of passes) {
+    const room = MAX_JOBS_PER_RUN - allJobs.length;
+    if (room <= 0) break;
+    try {
+      const r = await fetchFantasticJobs(apiKey, titleQuery, pass.location, timeFrame, room);
+      allJobs.push(...r.jobs);
+      jobsRemaining = r.jobsRemaining ?? jobsRemaining;
+      requestsRemaining = r.requestsRemaining ?? requestsRemaining;
+    } catch (e) {
+      errors.push({ step: pass.step, error: e instanceof Error ? e.message : String(e) });
+    }
   }
   const capReached = allJobs.length >= MAX_JOBS_PER_RUN;
 
