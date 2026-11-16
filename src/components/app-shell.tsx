@@ -80,7 +80,7 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
         />
         <div className="min-w-0 flex-1">
           <div className="text-base font-semibold tracking-tight flex items-center gap-2">
-            Job Monitor
+            Job Search Helper
             {isDemo && (
               <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">
                 Demo
@@ -170,7 +170,7 @@ export function AppShell({ children, email, isDemo }: { children: React.ReactNod
               style={{ background: "var(--gradient-jewel)" }}
               aria-hidden
             />
-            <span className="text-sm font-semibold truncate">Job Monitor</span>
+            <span className="text-sm font-semibold truncate">Job Search Helper</span>
           </div>
         </header>
         <div className="max-w-6xl mx-auto p-4 sm:p-6 md:p-8">{children}</div>

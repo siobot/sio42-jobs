@@ -38,7 +38,7 @@ const DISCOVER_BANNER_KEY = "discover-banner";
 type DiscoverBanner = { tone: "success" | "error"; text: string; errors: string[]; at: string };
 
 export const Route = createFileRoute("/_app/")({
-  head: () => ({ meta: [{ title: "Jobs Feed — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Jobs Feed — Job Search Helper" }] }),
   validateSearch: searchSchema,
   component: Dashboard,
 });

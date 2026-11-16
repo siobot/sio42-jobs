@@ -1,6 +1,6 @@
 {
-  "name": "Pursuit Bot",
-  "short_name": "Pursuit",
+  "name": "Job Search Helper",
+  "short_name": "Job Helper",
   "description": "Track and monitor job applications from career pages and job boards.",
   "start_url": "/",
   "scope": "/",

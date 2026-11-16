@@ -1,4 +1,4 @@
-// Messaging-only service worker for Pursuit Bot.
+// Messaging-only service worker for Job Search Helper.
 // Handles web push notifications and home-screen badge updates.
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -11,7 +11,7 @@ self.addEventListener("push", (event) => {
   } catch {
     payload = { title: "New activity", body: event.data ? event.data.text() : "" };
   }
-  const title = payload.title || "Pursuit Bot";
+  const title = payload.title || "Job Search Helper";
   const body = payload.body || "";
   const badgeCount = typeof payload.badgeCount === "number" ? payload.badgeCount : undefined;
   const url = payload.url || "/jobs";
