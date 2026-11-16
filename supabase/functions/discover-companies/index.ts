@@ -39,6 +39,7 @@ type FetchResult = {
   jobs: FantasticJob[];
   jobsRemaining: number | null;
   requestsRemaining: number | null;
+  jobsThisRequest: number | null;
 };
 
 // Turn a free-text term into an exact-phrase operand for *_advanced params.
@@ -129,6 +130,7 @@ async function fetchFantasticJobs(
     jobs: (await res.json()) as FantasticJob[],
     jobsRemaining: headerInt(res, "x-api-jobs-remaining"),
     requestsRemaining: headerInt(res, "x-api-requests-remaining"),
+    jobsThisRequest: headerInt(res, "x-api-jobs-this-request"),
   };
 }
 
@@ -301,8 +303,17 @@ async function runDiscoveryForUser(
     try {
       const r = await fetchFantasticJobs(apiKey, titleQuery, pass.location, timeFrame, room, cursor);
       allJobs.push(...r.jobs);
-      jobsRemaining = r.jobsRemaining ?? jobsRemaining;
-      requestsRemaining = r.requestsRemaining ?? requestsRemaining;
+      // The *-remaining headers are cached for a few seconds, so a second
+      // request moments later can still show the pre-run balance. Take the
+      // balance from the first request and subtract later requests locally
+      // (x-api-jobs-this-request is always exact).
+      if (jobsRemaining === null) {
+        jobsRemaining = r.jobsRemaining;
+        requestsRemaining = r.requestsRemaining;
+      } else {
+        jobsRemaining -= r.jobsThisRequest ?? r.jobs.length;
+        if (requestsRemaining !== null) requestsRemaining -= 1;
+      }
       const lastId = r.jobs.reduce((m, j) => Math.max(m, Number(j.id) || 0), cursor);
       nextCursors[pass.step] = { key, cursor: lastId };
     } catch (e) {

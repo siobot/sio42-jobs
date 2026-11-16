@@ -172,13 +172,14 @@ function Dashboard() {
       toast.success(
         `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested ?? 0} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched ?? 0} scanned)` +
           (result.capReached ? ` — stopped at the ${result.maxJobsPerRun}-job limit; the next run continues from here` : ""),
+        { duration: 30000, closeButton: true },
       );
       const errs = result.errorDetails ?? [];
       if (errs.length > 0) {
         toast.error(
           `Discovery had ${errs.length} error${errs.length === 1 ? "" : "s"}: ` +
             errs.slice(0, 3).map((e) => `${e.step.replace(/^fetch:/, "")} — ${e.error}`).join("; "),
-          { duration: 15000 },
+          { duration: 30000, closeButton: true },
         );
       }
     },
