@@ -166,9 +166,12 @@ function Dashboard() {
       const result = r as {
         newRoles?: number; companiesSuggested?: number; companiesUpdated?: number; jobsFetched?: number;
         errorDetails?: Array<{ step: string; error: string }>;
+        jobsRemaining?: number | null; requestsRemaining?: number | null;
+        capReached?: boolean; maxJobsPerRun?: number;
       };
       toast.success(
-        `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested ?? 0} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched ?? 0} scanned)`,
+        `Discovery complete: ${result.newRoles ?? 0} new jobs from ${result.companiesSuggested ?? 0} new and ${result.companiesUpdated ?? 0} already-listed companies (${result.jobsFetched ?? 0} scanned)` +
+          (result.capReached ? ` — stopped at the ${result.maxJobsPerRun}-job limit; more matches may exist` : ""),
       );
       const errs = result.errorDetails ?? [];
       if (errs.length > 0) {
@@ -243,7 +246,7 @@ function Dashboard() {
     queryKey: ["discovery-last-run"],
     queryFn: async () => {
       const { data } = await supabase.from("discovery_runs")
-        .select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle();
+        .select("started_at, finished_at, jobs_remaining, requests_remaining").order("started_at", { ascending: false }).limit(1).maybeSingle();
       return data;
     },
   });
@@ -268,6 +271,9 @@ function Dashboard() {
         </div>
         <p className="text-sm text-muted-foreground">
           {demoLoading ? "Setting up your demo…" : `Last scan: ${lastRunRel} · Last discover: ${lastDiscoveryRel}`}
+          {!demoLoading && lastDiscovery.data?.jobs_remaining != null && (
+            <> · Fantastic Jobs left: {lastDiscovery.data.jobs_remaining} jobs, {lastDiscovery.data.requests_remaining ?? "?"} calls</>
+          )}
         </p>
       </div>
 

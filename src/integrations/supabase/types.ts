@@ -62,6 +62,8 @@ export type Database = {
           user_id: string
           triggered_by: string
           jobs_fetched: number
+          jobs_remaining: number | null
+          requests_remaining: number | null
           companies_found: number
           companies_suggested: number
           errors: Json
@@ -73,6 +75,8 @@ export type Database = {
           user_id: string
           triggered_by?: string
           jobs_fetched?: number
+          jobs_remaining?: number | null
+          requests_remaining?: number | null
           companies_found?: number
           companies_suggested?: number
           errors?: Json
@@ -84,6 +88,8 @@ export type Database = {
           user_id?: string
           triggered_by?: string
           jobs_fetched?: number
+          jobs_remaining?: number | null
+          requests_remaining?: number | null
           companies_found?: number
           companies_suggested?: number
           errors?: Json
