@@ -12,7 +12,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { createDemoAccount } from "@/lib/demo.functions";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Sign in — Job Search Helper" }] }),
   component: AuthPage,
 });
 
@@ -80,7 +80,7 @@ function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm p-6">
-        <h1 className="text-2xl font-semibold mb-1">Job Monitor</h1>
+        <h1 className="text-2xl font-semibold mb-1">Job Search Helper</h1>
         <p className="text-sm text-muted-foreground mb-6">
           {mode === "signin" ? "Sign in to your tracker." : "Create your tracker account."}
         </p>

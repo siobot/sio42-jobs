@@ -28,7 +28,7 @@ import { Trash2, Plus, Upload, RotateCcw, Save, Sparkles, Ban, Globe, MapPin, La
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/settings")({
-  head: () => ({ meta: [{ title: "Settings — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Settings — Job Search Helper" }] }),
   component: SettingsPage,
 });
 

@@ -10,7 +10,7 @@ import { JobActions } from "@/components/job-actions";
 type Status = "new" | "interested" | "applied" | "dismissed" | "archived";
 
 export const Route = createFileRoute("/_app/history")({
-  head: () => ({ meta: [{ title: "Scan history — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Scan history — Job Search Helper" }] }),
   component: HistoryPage,
 });
 

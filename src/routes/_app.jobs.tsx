@@ -21,7 +21,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/_app/jobs")({
-  head: () => ({ meta: [{ title: "Jobs feed — Job Monitor" }] }),
+  head: () => ({ meta: [{ title: "Jobs feed — Job Search Helper" }] }),
   validateSearch: searchSchema,
   component: JobsPage,
 });
