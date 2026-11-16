@@ -39,6 +39,7 @@ type FetchResult = {
   jobs: FantasticJob[];
   jobsRemaining: number | null;
   requestsRemaining: number | null;
+  jobsThisRequest: number | null;
 };
 
 // Turn a free-text term into an exact-phrase operand for *_advanced params.
@@ -129,6 +130,7 @@ async function fetchFantasticJobs(
     jobs: (await res.json()) as FantasticJob[],
     jobsRemaining: headerInt(res, "x-api-jobs-remaining"),
     requestsRemaining: headerInt(res, "x-api-requests-remaining"),
+    jobsThisRequest: headerInt(res, "x-api-jobs-this-request"),
   };
 }
 
@@ -291,6 +293,11 @@ async function runDiscoveryForUser(
   const savedCursors = ((configRow as { cursors?: CursorState } | null)?.cursors ?? {}) as CursorState;
   const nextCursors: CursorState = { ...savedCursors };
 
+  // Jobs returned by each request, and how many the no-location request
+  // returned that the location request already had (shows whether it's redundant).
+  const passCounts: { location: number | null; noLocation: number | null } = { location: null, noLocation: null };
+  let overlap = 0;
+
   for (const pass of passes) {
     const room = MAX_JOBS_PER_RUN - allJobs.length;
     if (room <= 0) break;
@@ -300,9 +307,20 @@ async function runDiscoveryForUser(
     const cursor = saved && saved.key === key && saved.cursor > 0 ? saved.cursor : 1;
     try {
       const r = await fetchFantasticJobs(apiKey, titleQuery, pass.location, timeFrame, room, cursor);
+      passCounts[pass.step === "fetch" ? "location" : "noLocation"] = r.jobs.length;
+      for (const j of r.jobs) if (allJobs.some((a) => a.id === j.id)) overlap++;
       allJobs.push(...r.jobs);
-      jobsRemaining = r.jobsRemaining ?? jobsRemaining;
-      requestsRemaining = r.requestsRemaining ?? requestsRemaining;
+      // The *-remaining headers are cached for a few seconds, so a second
+      // request moments later can still show the pre-run balance. Take the
+      // balance from the first request and subtract later requests locally
+      // (x-api-jobs-this-request is always exact).
+      if (jobsRemaining === null) {
+        jobsRemaining = r.jobsRemaining;
+        requestsRemaining = r.requestsRemaining;
+      } else {
+        jobsRemaining -= r.jobsThisRequest ?? r.jobs.length;
+        if (requestsRemaining !== null) requestsRemaining -= 1;
+      }
       const lastId = r.jobs.reduce((m, j) => Math.max(m, Number(j.id) || 0), cursor);
       nextCursors[pass.step] = { key, cursor: lastId };
     } catch (e) {
@@ -431,6 +449,8 @@ async function runDiscoveryForUser(
     requestsRemaining,
     capReached,
     maxJobsPerRun: MAX_JOBS_PER_RUN,
+    passCounts,
+    overlap,
   };
 }
 
