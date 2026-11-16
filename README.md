@@ -38,18 +38,4 @@ Job Search Helper collects job postings from company career pages and remote-job
 
 ## How it runs
 
-- **Web app:** [TanStack Start](https://tanstack.com/start) (React), deployed to Netlify from the `main` branch.
-- **Database and sign-in:** Supabase.
-- **Discover:** runs as the Supabase Edge Function `supabase/functions/discover-companies`. It is deployed separately from the web app:
-  ```
-  supabase functions deploy discover-companies --remote=<project-ref>
-  ```
-  It needs the secret `FANTASTIC_JOBS_API_KEY`.
-- **Database changes:** live in `supabase/migrations/` and are applied manually.
-
-## Local development
-
-```
-npm install
-npm run dev
-```
+Hosted on [Netlify](https://www.netlify.com), with [Supabase](https://supabase.com) for the database and sign-in.
