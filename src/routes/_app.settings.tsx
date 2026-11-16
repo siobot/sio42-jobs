@@ -896,7 +896,7 @@ function DiscoveryScheduleCard() {
 
   const saveM = useMutation({
     mutationFn: () => saveCfg({ data: {
-      time_frame: (timeFrame ?? "7d") as "24h" | "7d",
+      time_frame: (timeFrame ?? "7d") as "24h" | "36h" | "48h" | "7d",
       enabled: enabled ?? false,
     } }),
     onSuccess: () => {
@@ -932,6 +932,8 @@ function DiscoveryScheduleCard() {
           <SelectTrigger id="disc-timeFrame" className="max-w-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="24h">Last 24 hours</SelectItem>
+            <SelectItem value="36h">Last 36 hours</SelectItem>
+            <SelectItem value="48h">Last 48 hours</SelectItem>
             <SelectItem value="7d">Last 7 days</SelectItem>
           </SelectContent>
         </Select>

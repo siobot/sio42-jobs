@@ -26,50 +26,110 @@ type DiscoveredCompany = {
   roles: Array<{ title: string; url: string; location: string }>;
 };
 
+// Free-plan quota (jobs and API calls) is finite and never resets, so each
+// Discover run makes at most two requests, sharing a MAX_JOBS_PER_RUN cap: all
+// keywords combined into one Boolean title search with location filters applied
+// server-side, then (if a location filter is set and the cap isn't reached) the
+// same search for jobs with no recognisable location, which a location filter
+// would otherwise drop. Each request resumes from the last job id seen for
+// the same search (cursor), so no job is paid for twice.
+const MAX_JOBS_PER_RUN = 100;
+
+type FetchResult = {
+  jobs: FantasticJob[];
+  jobsRemaining: number | null;
+  requestsRemaining: number | null;
+};
+
+// Turn a free-text term into an exact-phrase operand for *_advanced params.
+// Punctuation is dropped (the parser is strict); multi-word terms are quoted.
+function phrase(term: string): string | null {
+  const words = term.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  if (!words) return null;
+  return words.includes(" ") ? `'${words}'` : words;
+}
+
+function anyOf(terms: string[]): string | null {
+  const parts = [...new Set(terms.map(phrase).filter((p): p is string => !!p))];
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? parts[0] : `(${parts.join(" | ")})`;
+}
+
+// (kw1 | kw2 ...) & !((ex1 | ex2 ...) & !(exc1 | exc2 ...))
+export function buildTitleQuery(keywords: string[], exclusions: string[], exceptions: string[]): string | null {
+  const kw = anyOf(keywords);
+  if (!kw) return null;
+  const ex = anyOf(exclusions);
+  if (!ex) return kw;
+  const exc = anyOf(exceptions);
+  return exc ? `${kw} & !(${ex} & !${exc})` : `${kw} & !${ex}`;
+}
+
+// (inc1 | inc2 ...) & !(exc1 | exc2 ...), searched against locations_derived.
+export function buildLocationQuery(include: string[], exclude: string[]): string | null {
+  const inc = anyOf(include);
+  const exc = anyOf(exclude);
+  if (inc && exc) return `${inc} & !${exc}`;
+  if (inc) return inc;
+  if (exc) return `!${exc}`;
+  return null;
+}
+
+function headerInt(res: Response, name: string): number | null {
+  const v = res.headers.get(name);
+  const n = v === null ? NaN : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function fetchFantasticJobs(
   apiKey: string,
-  keyword: string,
+  titleQuery: string,
+  // A location_advanced expression, "none" for jobs with no recognisable
+  // location (has_no_location), or null for no location filter.
+  location: string | "none" | null,
   timeFrame: string,
-): Promise<FantasticJob[]> {
-  const allJobs: FantasticJob[] = [];
-  let offset = 0;
-  const limit = 1000;
+  limit: number,
+  cursor: number,
+): Promise<FetchResult> {
+  // The API's windows are 1h, 24h, 7d and 6m. 36h/48h use the 7d window
+  // narrowed to jobs indexed within the last N hours (date_created_gte).
+  const hours = { "36h": 36, "48h": 48 }[timeFrame];
+  const params = new URLSearchParams({
+    title_advanced: titleQuery,
+    source: "ashby,greenhouse,lever.co",
+    ai_language: "English",
+    organization_agency: "exclude",
+    time_frame: hours ? "7d" : timeFrame,
+    limit: String(limit),
+    // Cursor pagination: results ordered by id ascending, starting after
+    // `cursor`, so each run resumes where the previous one stopped.
+    cursor: String(cursor),
+  });
+  if (hours) {
+    const since = new Date(Date.now() - hours * 3600_000).toISOString().slice(0, 19);
+    params.set("date_created_gte", since);
+  }
+  if (location === "none") params.set("has_no_location", "true");
+  else if (location) params.set("location_advanced", location);
 
-  while (true) {
-    const params = new URLSearchParams({
-      title: keyword,
-      source: "ashby,greenhouse,lever",
-      ai_language: "English",
-      organization_agency: "exclude",
-      time_frame: timeFrame,
-      limit: String(limit),
-      offset: String(offset),
-    });
+  const res = await fetch(`${FANTASTIC_JOBS_URL}?${params}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(30000),
+  });
 
-    const res = await fetch(`${FANTASTIC_JOBS_URL}?${params}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (res.status === 429) {
-      throw new Error("Rate limited by Fantastic Jobs API");
-    }
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Fantastic Jobs API ${res.status}: ${text.slice(0, 200)}`);
-    }
-
-    const jobs: FantasticJob[] = await res.json();
-    allJobs.push(...jobs);
-
-    if (jobs.length < limit) break;
-    offset += limit;
-
-    // Safety cap: don't fetch more than 5000 jobs per keyword
-    if (offset >= 5000) break;
+  if (res.status === 429) {
+    throw new Error("Rate limited by Fantastic Jobs API");
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Fantastic Jobs API ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  return allJobs;
+  return {
+    jobs: (await res.json()) as FantasticJob[],
+    jobsRemaining: headerInt(res, "x-api-jobs-remaining"),
+    requestsRemaining: headerInt(res, "x-api-requests-remaining"),
+  };
 }
 
 function mapAtsSource(source: string): string | null {
@@ -215,20 +275,45 @@ async function runDiscoveryForUser(
   // "1h" is no longer offered in Settings; older saved values run as 24h.
   const timeFrame = config.time_frame === "1h" ? "24h" : (config.time_frame ?? "7d");
 
-  // Phase 1: Fetch jobs from Fantastic Jobs API for each keyword
+  // Phase 1: fetch from the Fantastic Jobs API (see MAX_JOBS_PER_RUN note)
   const allJobs: FantasticJob[] = [];
+  let jobsRemaining: number | null = null;
+  let requestsRemaining: number | null = null;
+  const titleQuery = buildTitleQuery(keywords, exclusions, exceptions)!;
+  const locationQuery = buildLocationQuery(locationInclude, locationExclude);
 
-  for (const keyword of keywords) {
+  const passes: Array<{ step: string; location: string | "none" | null }> = [
+    { step: "fetch", location: locationQuery },
+  ];
+  if (locationQuery) passes.push({ step: "fetch:no-location", location: "none" });
+
+  type CursorState = Record<string, { key: string; cursor: number }>;
+  const savedCursors = ((configRow as { cursors?: CursorState } | null)?.cursors ?? {}) as CursorState;
+  const nextCursors: CursorState = { ...savedCursors };
+
+  for (const pass of passes) {
+    const room = MAX_JOBS_PER_RUN - allJobs.length;
+    if (room <= 0) break;
+    // A changed search (keywords, location settings, time frame) starts over.
+    const key = JSON.stringify([timeFrame, titleQuery, pass.location]);
+    const saved = savedCursors[pass.step];
+    const cursor = saved && saved.key === key && saved.cursor > 0 ? saved.cursor : 1;
     try {
-      const jobs = await fetchFantasticJobs(apiKey, keyword, timeFrame);
-      allJobs.push(...jobs);
+      const r = await fetchFantasticJobs(apiKey, titleQuery, pass.location, timeFrame, room, cursor);
+      allJobs.push(...r.jobs);
+      jobsRemaining = r.jobsRemaining ?? jobsRemaining;
+      requestsRemaining = r.requestsRemaining ?? requestsRemaining;
+      const lastId = r.jobs.reduce((m, j) => Math.max(m, Number(j.id) || 0), cursor);
+      nextCursors[pass.step] = { key, cursor: lastId };
     } catch (e) {
-      errors.push({
-        step: `fetch:${keyword}`,
-        error: e instanceof Error ? e.message : String(e),
-      });
+      errors.push({ step: pass.step, error: e instanceof Error ? e.message : String(e) });
     }
   }
+
+  const { error: cursorErr } = await supabase.from("discovery_config")
+    .upsert({ user_id: userId, cursors: nextCursors }, { onConflict: "user_id" });
+  if (cursorErr) errors.push({ step: "save-cursor", error: cursorErr.message });
+  const capReached = allJobs.length >= MAX_JOBS_PER_RUN;
 
   // Dedupe jobs by ID
   const uniqueJobs = new Map<number, FantasticJob>();
@@ -323,6 +408,8 @@ async function runDiscoveryForUser(
   // Finalize run
   await supabase.from("discovery_runs").update({
     jobs_fetched: uniqueJobs.size,
+    jobs_remaining: jobsRemaining,
+    requests_remaining: requestsRemaining,
     companies_found: companyMap.size,
     companies_suggested: companiesSuggested,
     errors,
@@ -339,6 +426,11 @@ async function runDiscoveryForUser(
     companiesUpdated,
     newRoles,
     errors: errors.length,
+    errorDetails: errors,
+    jobsRemaining,
+    requestsRemaining,
+    capReached,
+    maxJobsPerRun: MAX_JOBS_PER_RUN,
   };
 }
 
@@ -364,28 +456,15 @@ Deno.serve(async (req: Request) => {
     let userIds: string[] = [];
     const triggeredBy = (body.triggered_by as string) || "manual";
 
-    if (body.user_id) {
-      userIds = [body.user_id as string];
-    } else {
-      const cronSecret = Deno.env.get("DISCOVERY_CRON_SECRET");
-      const provided = req.headers.get("x-cron-secret");
-      if (!cronSecret || provided !== cronSecret) {
-        return new Response(JSON.stringify({ error: "user_id required or valid x-cron-secret" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const { data: enabledUsers } = await supabase
-        .from("discovery_config")
-        .select("user_id")
-        .eq("enabled", true);
-      userIds = (enabledUsers ?? []).map((r) => r.user_id);
-      if (userIds.length === 0) {
-        return new Response(JSON.stringify({ ok: true, message: "No users with discovery enabled" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    // Discovery runs only when the user presses "Discover new" (free-plan API
+    // quota is finite), so scheduled/cron calls without a user_id are refused.
+    if (!body.user_id) {
+      return new Response(JSON.stringify({ error: "user_id required; scheduled discovery is disabled" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+    userIds = [body.user_id as string];
 
     const allResults: Array<Record<string, unknown>> = [];
 

@@ -19,18 +19,21 @@ export type Database = {
           user_id: string
           time_frame: string
           enabled: boolean
+          cursors: Json
           updated_at: string
         }
         Insert: {
           user_id: string
           time_frame?: string
           enabled?: boolean
+          cursors?: Json
           updated_at?: string
         }
         Update: {
           user_id?: string
           time_frame?: string
           enabled?: boolean
+          cursors?: Json
           updated_at?: string
         }
         Relationships: []
@@ -62,6 +65,8 @@ export type Database = {
           user_id: string
           triggered_by: string
           jobs_fetched: number
+          jobs_remaining: number | null
+          requests_remaining: number | null
           companies_found: number
           companies_suggested: number
           errors: Json
@@ -73,6 +78,8 @@ export type Database = {
           user_id: string
           triggered_by?: string
           jobs_fetched?: number
+          jobs_remaining?: number | null
+          requests_remaining?: number | null
           companies_found?: number
           companies_suggested?: number
           errors?: Json
@@ -84,6 +91,8 @@ export type Database = {
           user_id?: string
           triggered_by?: string
           jobs_fetched?: number
+          jobs_remaining?: number | null
+          requests_remaining?: number | null
           companies_found?: number
           companies_suggested?: number
           errors?: Json
